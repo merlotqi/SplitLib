@@ -25,20 +25,36 @@
 
 #pragma once
 
-#include <math.h>
 #include <splat/data_table.h>
 
-#include <array>
-#include <cstdint>
-#include <filesystem>
-#include <iostream>
-#include <map>
-#include <optional>
-#include <string>
-#include <vector>
+#include <functional>
+#include <memory>
 
 namespace splat {
 
-DataTable read_sog(std::filesystem::path file, const std::string& sourceName);
+struct KdTreeNode {
+  size_t index;
+  size_t count;
+  std::unique_ptr<KdTreeNode> left;
+  std::unique_ptr<KdTreeNode> right;
+};
+
+class KdTree {
+  const DataTable& centroids;
+  std::unique_ptr<KdTreeNode> root;
+
+  std::unique_ptr<KdTreeNode> build(std::vector<size_t>& indices, size_t start, size_t end, size_t depth);
+
+ public:
+  KdTree(const DataTable& table);
+
+  enum {
+    index,
+    distanceSqr,
+    count,
+    findNearestMaxIndex = 3
+  };
+  std::tuple<int, float, size_t> findNearest(const std::vector<float>& point, std::function<bool(size_t)> filterFunc = nullptr);
+};
 
 }  // namespace splat

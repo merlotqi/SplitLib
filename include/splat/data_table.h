@@ -25,6 +25,7 @@
 
 #pragma once
 
+#include <Eigen/Dense>
 #include <map>
 #include <memory>
 #include <stdexcept>
@@ -32,9 +33,10 @@
 #include <type_traits>
 #include <variant>
 #include <vector>
-#include <Eigen/Dense>
 
 namespace splat {
+
+using Row = std::map<std::string, double>;
 
 enum class ColumnType {
   INT8,
@@ -46,8 +48,6 @@ enum class ColumnType {
   FLOAT32,
   FLOAT64,
 };
-
-using Row = std::map<std::string, double>;
 using TypedArray = std::variant<std::vector<int8_t>,    // Int8Array
                                 std::vector<uint8_t>,   // Uint8Array
                                 std::vector<int16_t>,   // Int16Array
@@ -58,96 +58,124 @@ using TypedArray = std::variant<std::vector<int8_t>,    // Int8Array
                                 std::vector<double>     // Float64Array
                                 >;
 
-class ColumnBase {
- public:
-  std::string name;
-  ColumnBase(const std::string& name) : name(name) {}
-  virtual ~ColumnBase() = default;
-
-  virtual ColumnType getDataType() const = 0;
-  virtual size_t length() const = 0;
-  virtual std::unique_ptr<ColumnBase> clone() const = 0;
-  virtual double getValue(size_t index) const = 0;
-  virtual void setValue(size_t index, double value) = 0;
-  virtual void permuteData(const ColumnBase* source_col, const std::vector<uint32_t>& indices) = 0;
-};
-
 template <typename T>
-class Column : public ColumnBase {
- public:
-  std::vector<T> data;
-  Column(const std::string& name, const std::vector<T>& data) : ColumnBase(name), data(data) {}
-  ColumnType getDataType() const override {
-    if constexpr (std::is_same_v<T, int8_t>) {
-      return ColumnType::INT8;
-    } else if constexpr (std::is_same_v<T, uint8_t>) {
-      return ColumnType::UINT8;
-    } else if constexpr (std::is_same_v<T, int16_t>) {
-      return ColumnType::INT16;
-    } else if constexpr (std::is_same_v<T, uint16_t>) {
-      return ColumnType::UINT16;
-    } else if constexpr (std::is_same_v<T, int32_t>) {
-      return ColumnType::INT32;
-    } else if constexpr (std::is_same_v<T, uint32_t>) {
-      return ColumnType::UINT32;
-    } else if constexpr (std::is_same_v<T, float>) {
-      return ColumnType::FLOAT32;
-    } else if constexpr (std::is_same_v<T, double>) {
-      return ColumnType::FLOAT64;
-    } else {
-      static_assert(false, "Unsupported data type");
+constexpr size_t getTypedArrayIndex() {
+  return std::variant<std::vector<int8_t>, std::vector<uint8_t>, std::vector<int16_t>, std::vector<uint16_t>,
+                      std::vector<int32_t>, std::vector<uint32_t>, std::vector<float>, std::vector<double>>(
+             std::in_place_type<std::vector<T>>)
+      .index();
+}
+
+struct Column {
+  std::string name;
+  TypedArray data;
+
+  ColumnType getType() const {
+    switch (data.index()) {
+      case 0:
+        return ColumnType::INT8;
+      case 1:
+        return ColumnType::UINT8;
+      case 2:
+        return ColumnType::INT16;
+      case 3:
+        return ColumnType::UINT16;
+      case 4:
+        return ColumnType::INT32;
+      case 5:
+        return ColumnType::UINT32;
+      case 6:
+        return ColumnType::FLOAT32;
+      case 7:
+        return ColumnType::FLOAT64;
+      default:
+        throw std::runtime_error("Unknown TypedArray variant index.");
     }
   }
 
-  std::unique_ptr<ColumnBase> clone() const override { return std::make_unique<Column<T>>(name, data); }
-
-  size_t length() const override { return data.size(); }
-
-  double getValue(size_t index) const override {
-    if (index >= data.size()) {
-      throw std::out_of_range("index out of range");
-    }
-    return static_cast<double>(data[index]);
+  size_t length() const {
+    return std::visit([](const auto& arg) -> size_t { return arg.size(); }, data);
   }
 
-  void setValue(size_t index, double value) override {
-    if (index >= data.size()) {
-      throw std::out_of_range("index out of range");
+  template <typename T>
+  T getValue(size_t index) const {
+    if (index >= length()) {
+      throw std::out_of_range("Index out of range in getValue.");
     }
-    data[index] = static_cast<T>(value);
+
+    return std::visit(
+        [index](const auto& vec) -> T {
+          using InternalType = typename std::decay_t<decltype(vec)>::value_type;
+          // Compile-time check: Ensure the internal type is convertible to T
+          if constexpr (!std::is_convertible_v<InternalType, T>) {
+            throw std::runtime_error("Internal type cannot be safely converted to requested type T.");
+          }
+          // Note: Range/precision loss checks for the *internal* value (e.g., int32_t to int8_t)
+          // are omitted here, as the focus is on the T return type.
+          return static_cast<T>(vec[index]);
+        },
+        data);
   }
 
-  std::vector<T>& getData() const { return data; }
-  std::vector<T> getData() { return data; }
-
-  void permuteData(const ColumnBase* source_col, const std::vector<uint32_t>& indices) override {
-    const Column<T>* old_col = dynamic_cast<const Column<T>*>(source_col);
-
-    if (!old_col) {
-      throw std::runtime_error("Permute source column type mismatch.");
+  template <typename T>
+  void setValue(size_t index, T value) {
+    if (index >= length()) {
+      throw std::out_of_range("Column index out of range for setValue.");
     }
 
-    size_t new_length = indices.size();
-    this->data.resize(new_length);
+    std::visit(
+        [index, value](auto& vec) {
+          // InternalType is the actual storage type (e.g., int32_t, float)
+          using InternalType = typename std::decay_t<decltype(vec)>::value_type;
 
-    const auto& src_data = old_col->data;
-    size_t src_len = src_data.size();
+          // Ensures T can be converted to InternalType syntactically.
+          if constexpr (!std::is_convertible_v<T, InternalType>) {
+            throw std::runtime_error("Input type T cannot be safely converted to internal column type.");
+          }
 
-    for (size_t j = 0; j < new_length; j++) {
-      size_t src_index = indices[j];
-      if (src_index >= src_len) {
-        throw std::out_of_range("Permutation index out of bounds.");
-      }
-      this->data[j] = src_data[src_index];
-    }
+          // Case 1: Target is an Integer (High risk of overflow/truncation)
+          if constexpr (std::is_integral_v<InternalType>) {
+            // B1. Check for value overflow/underflow against the limits of the InternalType
+            if (value > (T)std::numeric_limits<InternalType>::max() ||
+                value < (T)std::numeric_limits<InternalType>::min()) {
+              throw std::range_error("Value exceeds range of internal integer type.");
+            }
+
+            // B2. Check for floating-point to integer truncation (loss of fractional data)
+            if constexpr (std::is_floating_point_v<T>) {
+              // Check if the value has a significant fractional part
+              if (std::abs(value - std::round(value)) > 1e-6) {
+                throw std::range_error(
+                    "Floating-point value cannot be exactly represented in internal integer type (truncation risk).");
+              }
+            }
+          }
+          // Case 2: Target is a Float (Risk of precision loss)
+          else if constexpr (std::is_floating_point_v<InternalType>) {
+            // Check for precision loss when converting from double (T) to float (InternalType)
+            if constexpr (std::is_same_v<T, double> && std::is_same_v<InternalType, float>) {
+              // This check is complex and often left out, but for strictness:
+              // If the double value is outside the representable float range (though rare), or if
+              // significant precision is lost, we could flag it. For simplicity, standard cast is often accepted here.
+            }
+          }
+
+          vec[index] = static_cast<InternalType>(value);
+        },
+        data);
   }
+
+  double getValue(size_t index) const { return getValue<double>(index); }
+
+  void setValue(size_t index, double value) { setValue<double>(index, value); }
 };
 
 class DataTable {
  public:
-  std::vector<std::unique_ptr<ColumnBase>> columns;
+  std::vector<Column> columns;
 
-  DataTable(std::vector<std::unique_ptr<ColumnBase>> columns);
+  DataTable() = default;
+  DataTable(const std::vector<Column>& columns);
 
   DataTable(const DataTable& other) = delete;
   DataTable& operator=(const DataTable& other) = delete;
@@ -162,19 +190,58 @@ class DataTable {
 
   std::vector<std::string> getColumnNames() const;
   std::vector<ColumnType> getColumnTypes() const;
-  ColumnBase* getColumn(size_t index) const;
+  const Column& getColumn(size_t index) const;
+  Column& getColumn(size_t index);
   int getColumnIndex(const std::string& name) const;
-  ColumnBase* getColumnByName(const std::string& name) const;
+  const Column& getColumnByName(const std::string& name) const;
+  Column& getColumnByName(const std::string& name);
 
   bool hasColumn(const std::string& name) const;
-  void addColumn(std::unique_ptr<ColumnBase> column);
+  void addColumn(const Column& column);
   bool removeColumn(const std::string& name);
 
   DataTable clone() const;
   DataTable permuteRows(const std::vector<uint32_t>& indices) const;
 
- private:
-  std::unique_ptr<ColumnBase> createEmptyColumn(const std::string& name, ColumnType type, size_t length) const;
+  template <typename T>
+  const std::vector<T>& getRawColumnData(const std::string& name) const {
+    const Column& col = getColumnByName(name);
+
+    try {
+      return std::get<std::vector<T>>(col.data);
+    } catch (const std::bad_variant_access& e) {
+      throw std::runtime_error(
+          "Column type mismatch for '" + name + "'. Expected type index " +
+          std::to_string(
+              std::variant<std::vector<int8_t>, std::vector<uint8_t>, std::vector<int16_t>, std::vector<uint16_t>,
+                           std::vector<int32_t>, std::vector<uint32_t>, std::vector<float>, std::vector<double>>(
+                  std::in_place_type<std::vector<T>>)
+                  .index()) +
+          ", got index " + std::to_string(col.data.index()));
+    } catch (...) {
+      throw std::runtime_error("Unknown error while getting raw column data for '" + name + "'.");
+    }
+  }
+
+  template <typename T>
+  const std::vector<T>& getRawColumnData(size_t index) const {
+    const Column& col = getColumn(index);
+
+    try {
+      return std::get<std::vector<T>>(col.data);
+    } catch (const std::bad_variant_access& e) {
+      throw std::runtime_error(
+          "Column type mismatch for '" + name + "'. Expected type index " +
+          std::to_string(
+              std::variant<std::vector<int8_t>, std::vector<uint8_t>, std::vector<int16_t>, std::vector<uint16_t>,
+                           std::vector<int32_t>, std::vector<uint32_t>, std::vector<float>, std::vector<double>>(
+                  std::in_place_type<std::vector<T>>)
+                  .index()) +
+          ", got index " + std::to_string(col.data.index()));
+    } catch (...) {
+      throw std::runtime_error("Unknown error while getting raw column data for '" + name + "'.");
+    }
+  }
 };
 
 std::vector<uint32_t>& generateOrdering(DataTable& dataTable, std::vector<uint32_t>& indices);
@@ -182,3 +249,21 @@ std::vector<uint32_t>& generateOrdering(DataTable& dataTable, std::vector<uint32
 void transform(DataTable& dataTable, const Eigen::Vector3d& t, const Eigen::Quaterniond& r, float s);
 
 }  // namespace splat
+
+template const std::vector<int8_t>& splat::DataTable::getRawColumnData<int8_t>(size_t) const;
+template const std::vector<uint8_t>& splat::DataTable::getRawColumnData<uint8_t>(size_t) const;
+template const std::vector<int16_t>& splat::DataTable::getRawColumnData<int16_t>(size_t) const;
+template const std::vector<uint16_t>& splat::DataTable::getRawColumnData<uint16_t>(size_t) const;
+template const std::vector<int32_t>& splat::DataTable::getRawColumnData<int32_t>(size_t) const;
+template const std::vector<uint32_t>& splat::DataTable::getRawColumnData<uint32_t>(size_t) const;
+template const std::vector<float>& splat::DataTable::getRawColumnData<float>(size_t) const;
+template const std::vector<double>& splat::DataTable::getRawColumnData<double>(size_t) const;
+
+template const std::vector<int8_t>& splat::DataTable::getRawColumnData<int8_t>(const std::string&) const;
+template const std::vector<uint8_t>& splat::DataTable::getRawColumnData<uint8_t>(const std::string&) const;
+template const std::vector<int16_t>& splat::DataTable::getRawColumnData<int16_t>(const std::string&) const;
+template const std::vector<uint16_t>& splat::DataTable::getRawColumnData<uint16_t>(const std::string&) const;
+template const std::vector<int32_t>& splat::DataTable::getRawColumnData<int32_t>(const std::string&) const;
+template const std::vector<uint32_t>& splat::DataTable::getRawColumnData<uint32_t>(const std::string&) const;
+template const std::vector<float>& splat::DataTable::getRawColumnData<float>(const std::string&) const;
+template const std::vector<double>& splat::DataTable::getRawColumnData<double>(const std::string&) const;

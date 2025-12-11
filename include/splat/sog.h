@@ -43,7 +43,7 @@ struct Meta {
   } means;
 
   struct {
-    std::vector<double> codebook;
+    std::vector<float> codebook;
     std::vector<std::string> files;
   } scales;
 
@@ -52,14 +52,14 @@ struct Meta {
   } quats;
 
   struct {
-    std::vector<double> codebook;
+    std::vector<float> codebook;
     std::vector<std::string> files;
   } sh0;
 
   struct SHN {
     int count;
     int bands;
-    std::vector<double> codebook;
+    std::vector<float> codebook;
     std::vector<std::string> files;
   };
 

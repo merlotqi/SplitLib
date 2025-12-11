@@ -34,16 +34,16 @@
 
 namespace splat {
 
-DataTable::DataTable(std::vector<std::unique_ptr<ColumnBase>> columns) {
+DataTable::DataTable(const std::vector<Column>& columns) {
   if (columns.empty()) {
     throw std::runtime_error("DataTable must have at least one column");
   }
 
-  const size_t expected_length = columns[0]->length();
+  const size_t expected_length = columns[0].length();
   for (size_t i = 1; i < columns.size(); ++i) {
-    if (columns[i]->length() != expected_length) {
-      throw std::runtime_error("Column '" + columns[i]->name + "' has inconsistent number of rows: expected " +
-                               std::to_string(expected_length) + ", got " + std::to_string(columns[i]->length()));
+    if (columns[i].length() != expected_length) {
+      throw std::runtime_error("Column '" + columns[i].name + "' has inconsistent number of rows: expected " +
+                               std::to_string(expected_length) + ", got " + std::to_string(columns[i].length()));
     }
   }
   this->columns = std::move(columns);
@@ -53,7 +53,7 @@ size_t DataTable::getNumRows() const {
   if (columns.empty()) {
     return 0;
   }
-  return columns[0]->length();
+  return columns[0].length();
 }
 
 Row DataTable::getRow(size_t index) const {
@@ -62,7 +62,7 @@ Row DataTable::getRow(size_t index) const {
   }
   Row row;
   for (const auto& column : columns) {
-    row[column->name] = column->getValue(index);
+    row[column.name] = column.getValue(index);
   }
   return row;
 }
@@ -71,10 +71,10 @@ void DataTable::setRow(size_t index, const Row& row) {
   if (index >= getNumRows()) {
     throw std::out_of_range("Row index out of bounds in setRow");
   }
-  for (const auto& column : columns) {
-    auto it = row.find(column->name);
+  for (auto&& column : columns) {
+    auto it = row.find(column.name);
     if (it != row.end()) {
-      column->setValue(index, it->second);
+      column.setValue(index, it->second);
     }
   }
 }
@@ -84,7 +84,7 @@ size_t DataTable::getNumColumns() const { return columns.size(); }
 std::vector<std::string> DataTable::getColumnNames() const {
   std::vector<std::string> names;
   for (const auto& column : columns) {
-    names.push_back(column->name);
+    names.push_back(column.name);
   }
   return names;
 }
@@ -92,38 +92,56 @@ std::vector<std::string> DataTable::getColumnNames() const {
 std::vector<ColumnType> DataTable::getColumnTypes() const {
   std::vector<ColumnType> types;
   for (const auto& column : columns) {
-    types.push_back(column->getDataType());
+    types.push_back(column.getType());
   }
   return types;
 }
 
-ColumnBase* DataTable::getColumn(size_t index) const {
+const Column& DataTable::getColumn(size_t index) const {
   if (index >= columns.size()) {
     throw std::out_of_range("Column index out of bounds in getColumn");
   }
-  return columns[index].get();
+  return columns[index];
+}
+
+Column& DataTable::getColumn(size_t index) {
+  if (index >= columns.size()) {
+    throw std::out_of_range("Column index out of bounds in getColumn");
+  }
+  return columns[index];
 }
 
 int DataTable::getColumnIndex(const std::string& name) const {
   for (size_t i = 0; i < columns.size(); ++i) {
-    if (columns[i]->name == name) {
+    if (columns[i].name == name) {
       return i;
     }
   }
   return -1;
 }
 
-ColumnBase* DataTable::getColumnByName(const std::string& name) const {
+const Column& DataTable::getColumnByName(const std::string& name) const {
   int index = getColumnIndex(name);
-  return (index != -1) ? columns[index].get() : nullptr;
+  if (index == -1) {
+    throw std::out_of_range("Column not found: " + name);
+  }
+  return columns[index];
+}
+
+Column& DataTable::getColumnByName(const std::string& name) {
+  int index = getColumnIndex(name);
+  if (index == -1) {
+    throw std::out_of_range("Column not found: " + name);
+  }
+  return columns[index];
 }
 
 bool DataTable::hasColumn(const std::string& name) const { return getColumnIndex(name) != -1; }
 
-void DataTable::addColumn(std::unique_ptr<ColumnBase> column) {
-  if (column->length() != getNumRows()) {
-    throw std::runtime_error("Column '" + column->name + "' has inconsistent number of rows: expected " +
-                             std::to_string(getNumRows()) + ", got " + std::to_string(column->length()));
+void DataTable::addColumn(const Column& column) {
+  if (columns.size() > 0 && column.length() != getNumRows()) {
+    throw std::runtime_error("Column '" + column.name + "' has inconsistent number of rows: expected " +
+                             std::to_string(getNumRows()) + ", got " + std::to_string(column.length()));
   }
   columns.push_back(std::move(column));
 }
@@ -138,51 +156,46 @@ bool DataTable::removeColumn(const std::string& name) {
 }
 
 DataTable DataTable::clone() const {
-  std::vector<std::unique_ptr<ColumnBase>> cloned_columns;
-  for (const auto& column : columns) {
-    cloned_columns.push_back(column->clone());
+  std::vector<Column> cloned_cols;
+  cloned_cols.reserve(columns.size());
+
+  for (const auto& col : columns) {
+    TypedArray cloned_data =
+        std::visit([](const auto& vec) -> TypedArray { return std::decay_t<decltype(vec)>(vec); }, col.data);
+
+    cloned_cols.emplace_back(Column{col.name, std::move(cloned_data)});
   }
-  return DataTable(std::move(cloned_columns));
+
+  return DataTable(std::move(cloned_cols));
 }
 
 DataTable DataTable::permuteRows(const std::vector<uint32_t>& indices) const {
-  std::vector<std::unique_ptr<ColumnBase>> new_columns;
+  std::vector<Column> new_columns;
+  new_columns.reserve(columns.size());
   size_t new_length = indices.size();
+  size_t old_len = getNumRows();
 
-  for (const auto& old_column_base : columns) {
-    auto col_type = old_column_base->getDataType();
-    std::unique_ptr<ColumnBase> new_col = createEmptyColumn(old_column_base->name, col_type, 0);
+  for (const auto& old_col : columns) {
+    TypedArray new_data = std::visit(
+        [&indices, new_length, old_len](const auto& old_vec) -> TypedArray {
+          using T = typename std::decay_t<decltype(old_vec)>::value_type;
+          std::vector<T> new_vec(new_length);
 
-    new_col->permuteData(old_column_base.get(), indices);
+          for (size_t j = 0; j < new_length; j++) {
+            size_t src_index = indices[j];
+            if (src_index >= old_len) {
+              throw std::out_of_range("Permutation index out of bounds.");
+            }
+            new_vec[j] = old_vec[src_index];
+          }
+          return new_vec;
+        },
+        old_col.data);
 
-    new_columns.push_back(std::move(new_col));
+    new_columns.emplace_back(Column{old_col.name, std::move(new_data)});
   }
 
   return DataTable(std::move(new_columns));
-}
-
-std::unique_ptr<ColumnBase> DataTable::createEmptyColumn(const std::string& name, ColumnType type,
-                                                         size_t length) const {
-  switch (type) {
-    case ColumnType::INT8:
-      return std::make_unique<Column<int8_t>>(name, std::vector<int8_t>(length));
-    case ColumnType::UINT8:
-      return std::make_unique<Column<uint8_t>>(name, std::vector<uint8_t>(length));
-    case ColumnType::INT16:
-      return std::make_unique<Column<int16_t>>(name, std::vector<int16_t>(length));
-    case ColumnType::UINT16:
-      return std::make_unique<Column<uint16_t>>(name, std::vector<uint16_t>(length));
-    case ColumnType::INT32:
-      return std::make_unique<Column<int32_t>>(name, std::vector<int32_t>(length));
-    case ColumnType::UINT32:
-      return std::make_unique<Column<uint32_t>>(name, std::vector<uint32_t>(length));
-    case ColumnType::FLOAT32:
-      return std::make_unique<Column<float>>(name, std::vector<float>(length));
-    case ColumnType::FLOAT64:
-      return std::make_unique<Column<double>>(name, std::vector<double>(length));
-    default:
-      throw std::runtime_error("Unsupported column type in factory.");
-  }
 }
 
 /**
@@ -237,12 +250,8 @@ std::vector<uint32_t>& generateOrdering(DataTable& dataTable, std::vector<uint32
 
   // Helper to safely retrieve coordinate values using the DataTable interface
   auto getVal = [&](const std::string& name, size_t index) -> double {
-    ColumnBase* col = dataTable.getColumnByName(name);
-    if (!col) {
-      // Throw an exception if a required column is missing
-      throw std::runtime_error("Required column '" + name + "' not found.");
-    }
-    return col->getValue(index);
+    Column col = dataTable.getColumnByName(name);
+    return col.getValue(index);
   };
 
   // Define the recursive function using std::function
@@ -471,9 +480,9 @@ void transform(DataTable& dataTable, const Eigen::Vector3d& t, const Eigen::Quat
       Eigen::Vector4f pos4(pos.x(), pos.y(), pos.z(), 1.0f);
       pos4 = mat * pos4;
 
-      row["x"]= pos4.x() / pos4.w();
-      row["y"]= pos4.y() / pos4.w();
-      row["z"]= pos4.z() / pos4.w();
+      row["x"] = pos4.x() / pos4.w();
+      row["y"] = pos4.y() / pos4.w();
+      row["z"] = pos4.z() / pos4.w();
     }
 
     // --- B. Rotation ---

@@ -109,7 +109,7 @@ uint16_t ZipReader::readUint16LE(const std::vector<uint8_t>& data, size_t offset
  * @param utf8 True if the General Purpose Flag indicates UTF-8 encoding.
  * @return The decoded filename string.
  */
-std::string decodeName(const std::vector<uint8_t>& nameBytes, bool utf8) {
+std::string ZipReader::decodeName(const std::vector<uint8_t>& nameBytes, bool utf8) {
   // Filename decoding is simplified. In C++, std::string construction from
   // raw bytes handles both UTF-8 and ASCII (single-byte character sets).
   // For non-UTF8/legacy encoding, OS locale interpretation applies,

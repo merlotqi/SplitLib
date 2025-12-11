@@ -25,20 +25,10 @@
 
 #pragma once
 
-#include <math.h>
 #include <splat/data_table.h>
-
-#include <array>
-#include <cstdint>
-#include <filesystem>
-#include <iostream>
-#include <map>
-#include <optional>
-#include <string>
-#include <vector>
 
 namespace splat {
 
-DataTable read_sog(std::filesystem::path file, const std::string& sourceName);
+std::pair<DataTable, std::vector<int>> kmeans(const DataTable& points, int k, int iterations);
 
 }  // namespace splat

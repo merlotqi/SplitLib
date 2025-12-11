@@ -38,22 +38,28 @@ struct AABB {
 
   AABB(const std::vector<double>& min, const std::vector<double>& max);
 
-  int largetAxis() const;
+  int largestAxis() const;
   double largestDim() const;
-  AABB& fromCentroids(const DataTable& centroids, const std::vector<int>& indices);
+  AABB& fromCentroids(const DataTable& centroids, const std::vector<uint32_t>& indices);
 };
 
 struct BTreeNode {
   int count;
   AABB aabb;
   std::vector<uint32_t> indices;
-  BTreeNode* left;
-  BTreeNode* right;
+  std::unique_ptr<BTreeNode> left;
+  std::unique_ptr<BTreeNode> right;
 };
 
 class BTree {
-  public:
+ public:
+  const DataTable& centroids;
+  std::unique_ptr<BTreeNode> root;
 
+  BTree(const DataTable& centroids);
+
+ private:
+  std::unique_ptr<BTreeNode> recurse(std::vector<uint32_t> indices);
 };
 
 }  // namespace splat

@@ -25,20 +25,31 @@
 
 #pragma once
 
-#include <math.h>
-#include <splat/data_table.h>
-
-#include <array>
-#include <cstdint>
-#include <filesystem>
-#include <iostream>
-#include <map>
-#include <optional>
+#include <algorithm>
 #include <string>
-#include <vector>
 
 namespace splat {
+namespace strings {
 
-DataTable read_sog(std::filesystem::path file, const std::string& sourceName);
+inline std::string toLowerCase(const std::string& str) {
+  std::string lower = str;
+  std::transform(lower.begin(), lower.end(), lower.begin(), ::tolower);
+  return lower;
+}
 
+inline std::string toUpperCase(const std::string& str) {
+  std::string upper = str;
+  std::transform(upper.begin(), upper.end(), upper.begin(), ::toupper);
+  return upper;
+}
+
+inline bool startsWith(const std::string& str, const std::string& prefix) {
+  return (str.size() >= prefix.size()) && (str.rfind(prefix, 0) == 0);
+}
+
+inline bool endsWith(const std::string& str, const std::string& suffix) {
+  return (str.size() >= suffix.size()) && (str.rfind(suffix, str.size() - suffix.size()) != std::string::npos);
+}
+
+}  // namespace strings
 }  // namespace splat

@@ -44,19 +44,19 @@ Meta Meta::parseFromJson(const std::vector<uint8_t>& json) {
     meta.means.maxs = j["means"]["maxs"].get<std::vector<double>>();
     meta.means.files = j["means"]["files"].get<std::vector<std::string>>();
 
-    meta.scales.codebook = j["scales"]["codebook"].get<std::vector<double>>();
+    meta.scales.codebook = j["scales"]["codebook"].get<std::vector<float>>();
     meta.scales.files = j["scales"]["files"].get<std::vector<std::string>>();
 
     meta.quats.files = j["quats"]["files"].get<std::vector<std::string>>();
 
-    meta.sh0.codebook = j["sh0"]["codebook"].get<std::vector<double>>();
+    meta.sh0.codebook = j["sh0"]["codebook"].get<std::vector<float>>();
     meta.sh0.files = j["sh0"]["files"].get<std::vector<std::string>>();
 
     if (j.contains("shN") && !j["shN"].is_null()) {
       meta.shN = SHN{};
       meta.shN->count = j["shN"]["count"].get<int>();
       meta.shN->bands = j["shN"]["bands"].get<int>();
-      meta.shN->codebook = j["shN"]["codebook"].get<std::vector<double>>();
+      meta.shN->codebook = j["shN"]["codebook"].get<std::vector<float>>();
       meta.shN->files = j["shN"]["files"].get<std::vector<std::string>>();
     }
 

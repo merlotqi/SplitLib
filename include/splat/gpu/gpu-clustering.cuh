@@ -25,20 +25,13 @@
 
 #pragma once
 
-#include <math.h>
-#include <splat/data_table.h>
-
-#include <array>
-#include <cstdint>
-#include <filesystem>
-#include <iostream>
-#include <map>
-#include <optional>
-#include <string>
+#include <algorithm>
+#include <stdexcept>
 #include <vector>
 
 namespace splat {
 
-DataTable read_sog(std::filesystem::path file, const std::string& sourceName);
+std::vector<uint32_t> gpu_cluster(const std::vector<float>& h_points, const std::vector<float>& h_centroids,
+                                  uint32_t num_points, uint32_t num_centroids, uint32_t num_columns);
 
 }  // namespace splat

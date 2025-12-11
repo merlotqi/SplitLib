@@ -27,63 +27,63 @@
 #include <webp/decode.h>
 #include <webp/encode.h>
 
+#include <cstdint>
+#include <iostream>
+#include <memory>
 #include <stdexcept>
+#include <vector>
 
 namespace splat {
+namespace webpCodec {
 
-DecodedImage decodeRGBA(const uint8_t* data, size_t size) {
-  int width, height;
-  uint8_t* output = WebPDecodeRGBA(data, size, &width, &height);
-  if (!output) {
-    throw std::runtime_error("Failed to decode image");
+struct WebPFreeDeleter {
+  void operator()(void* ptr) const {
+    if (ptr) {
+      WebPFree(ptr);
+    }
+  }
+};
+
+using WebPDataPtr = std::unique_ptr<uint8_t, WebPFreeDeleter>;
+
+std::tuple<std::vector<uint8_t>, int, int> decodeRGBA(const std::vector<uint8_t>& webp) {
+  int width = 0;
+  int height = 0;
+  uint8_t* rgbaBuffer = WebPDecodeRGBA(webp.data(), webp.size(), &width, &height);
+
+  if (rgbaBuffer == nullptr) {
+    throw std::runtime_error("WebP decode failed. Could not decode data.");
   }
 
-  DecodedImage info;
-  info.width = width;
-  info.height = height;
-  info.rgba.assign(output, output + width * height * 4);
+  WebPDataPtr decodedData(rgbaBuffer);
+
+  const size_t size = static_cast<size_t>(width) * height * 4;
+
+  std::vector<uint8_t> resultData(decodedData.get(), decodedData.get() + size);
+
+  return {resultData, width, height};
 }
 
-std::vector<uint8_t> encodeLosslessRGBA(const uint8_t* rgba, int width, int height, int stride = 0) {
+std::vector<uint8_t> encodeLosslessRGBA(const std::vector<uint8_t>& rgba, int width, int height, int stride = 0) {
   if (stride == 0) {
     stride = width * 4;
   }
 
-  if (!rgba) {
-    throw std::runtime_error("Failed to encode image");
+  uint8_t* outputBuffer = nullptr;
+  size_t outputSize = 0;
+
+  outputSize = WebPEncodeLosslessRGBA(rgba.data(), width, height, stride, &outputBuffer);
+
+  if (outputSize == 0) {
+    throw std::runtime_error("WebP lossless encode failed. Output size is zero.");
   }
 
-  if (width <= 0 || height <= 0) {
-    throw std::runtime_error("Invalid image dimensions");
-  }
+  WebPDataPtr encodedData(outputBuffer);
 
-  if (stride < width * 4) {
-    throw std::runtime_error("Invalid stride");
-  }
+  std::vector<uint8_t> resultData(encodedData.get(), encodedData.get() + outputSize);
 
-  WebPConfig config;
-  if (!WebPConfigInit(&config)) {
-    throw std::runtime_error("Failed to initialize WebPConfig");
-  }
-
-  config.lossless = 1;
-  config.quality = 100;
-  config.method = 6;
-
-  if (!WebPValidateConfig(&config)) {
-    throw std::runtime_error("Invalid WebPConfig");
-  }
-
-  uint8_t* output = nullptr;
-  size_t output_size = WebPEncodeLosslessBGRA(rgba, width, height, stride, &output);
-  if (output_size == 0 || !output) {
-    throw std::runtime_error("Failed to encode image");
-  }
-
-  std::vector<uint8_t> result(output, output + output_size);
-  WebPFree(output);
-
-  return result;
+  return resultData;
 }
 
+}  // namespace webpCodec
 }  // namespace splat
