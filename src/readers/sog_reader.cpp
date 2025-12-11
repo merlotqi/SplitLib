@@ -141,14 +141,27 @@ DataTable read_sog(std::filesystem::path file, const std::string& sourceName) {
   const auto meta = Meta::parseFromJson(metaBytes);
   const int count = meta.count;
 
-  std::vector<Column> columns = {
-      {"x", std::vector<float>(count, 0.0f)},      {"y", std::vector<float>(count, 0.0f)},
-      {"z", std::vector<float>(count, 0.0f)},      {"scale0", std::vector<float>(count, 0.0f)},
-      {"scale1", std::vector<float>(count, 0.0f)}, {"scale2", std::vector<float>(count, 0.0f)},
-      {"f_dc_0", std::vector<float>(count, 0.0f)}, {"f_dc_1", std::vector<float>(count, 0.0f)},
-      {"f_dc_2", std::vector<float>(count, 0.0f)}, {"opacity", std::vector<float>(count, 0.0f)},
-      {"rot_0", std::vector<float>(count, 0.0f)},  {"rot_1", std::vector<float>(count, 0.0f)},
-      {"rot_2", std::vector<float>(count, 0.0f)},  {"rot_3", std::vector<float>(count, 0.0f)}};
+  std::vector<Column> columns = {// Position
+                                 {"x", std::vector<float>(count, 0.0f)},
+                                 {"y", std::vector<float>(count, 0.0f)},
+                                 {"z", std::vector<float>(count, 0.0f)},
+
+                                 // Scale (stored as linear in .splat, convert to log for internal use)
+                                 {"scale0", std::vector<float>(count, 0.0f)},
+                                 {"scale1", std::vector<float>(count, 0.0f)},
+                                 {"scale2", std::vector<float>(count, 0.0f)},
+
+                                 // Color/opacity
+                                 {"f_dc_0", std::vector<float>(count, 0.0f)},  // Red
+                                 {"f_dc_1", std::vector<float>(count, 0.0f)},  // Green
+                                 {"f_dc_2", std::vector<float>(count, 0.0f)},  // Blue
+                                 {"opacity", std::vector<float>(count, 0.0f)},
+
+                                 // Rotation quaternion
+                                 {"rot_0", std::vector<float>(count, 0.0f)},
+                                 {"rot_1", std::vector<float>(count, 0.0f)},
+                                 {"rot_2", std::vector<float>(count, 0.0f)},
+                                 {"rot_3", std::vector<float>(count, 0.0f)}};
 
   // Prepare output columns
   auto& xCol = columns[0];
