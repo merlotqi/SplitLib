@@ -48,6 +48,7 @@ enum class ColumnType {
   FLOAT32,
   FLOAT64,
 };
+
 using TypedArray = std::variant<std::vector<int8_t>,    // Int8Array
                                 std::vector<uint8_t>,   // Uint8Array
                                 std::vector<int16_t>,   // Int16Array
@@ -168,6 +169,26 @@ struct Column {
   double getValue(size_t index) const { return getValue<double>(index); }
 
   void setValue(size_t index, double value) { setValue<double>(index, value); }
+
+  size_t bytePreElement() const {
+    return std::visit(
+        [](const auto& vec) -> size_t {
+          using T = typename std::decay_t<decltype(vec)>::value_type;
+          return sizeof(T);
+        },
+        data);
+  }
+
+  size_t totalByteSize() const { return length() * bytePreElement(); }
+
+  const uint8_t* rawPointer() const {
+    return std::visit([](const auto& vec) -> const uint8_t* { return reinterpret_cast<const uint8_t*>(vec.data()); },
+                      data);
+  }
+
+  uint8_t* rawPointer() {
+    return std::visit([](auto& vec) -> uint8_t* { return reinterpret_cast<uint8_t*>(vec.data()); }, data);
+  }
 };
 
 class DataTable {

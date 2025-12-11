@@ -23,7 +23,7 @@
  * For more information, visit the project's homepage or contact the author.
  */
 
-#include <splat/sog.h>
+#include <splat/models/sog.h>
 
 #include <iostream>
 #include <nlohmann/json.hpp>

@@ -25,12 +25,13 @@
 
 #pragma once
 
-#include <splat/models/ply.h>
-
-#include <string>
+#include <cmath>
 
 namespace splat {
 
-PlyData readPly(const std::string& filename);
+template <typename T>
+inline T sigmoid(T x) {
+  return 1.0 / (1.0 + exp(-x));
+}
 
 }  // namespace splat

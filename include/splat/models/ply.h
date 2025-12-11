@@ -25,12 +25,35 @@
 
 #pragma once
 
-#include <splat/models/ply.h>
-
-#include <string>
+#include <splat/data_table.h>
 
 namespace splat {
 
-PlyData readPly(const std::string& filename);
+struct PlyProperty {
+  std::string name;  // 'x', 'f_dc_0', etc
+  std::string type;  // 'float' 'char', etc
+  ColumnType dataType;
+};
+
+struct PlyElement {
+  std::string name;  // 'vertex', 'face', etc
+  size_t count;      // number of items in this element
+  std::vector<PlyProperty> properties;
+};
+
+struct PlyHeader {
+  std::vector<std::string> comments;
+  std::vector<PlyElement> elements;
+};
+
+struct PlyElementData {
+  std::string name;
+  DataTable dataTable;
+};
+
+struct PlyData {
+  std::vector<std::string> comments;
+  std::vector<PlyElementData> elements;
+};
 
 }  // namespace splat
