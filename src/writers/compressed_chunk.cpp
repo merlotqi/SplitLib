@@ -30,10 +30,9 @@
 #include <algorithm>
 
 namespace splat {
-
 struct MinMax {
-  float min;
-  float max;
+  float min = std::numeric_limits<float>::infinity();
+  float max = -std::numeric_limits<float>::infinity();
 };
 
 static MinMax calcMinMax(const std::vector<float>& data) {

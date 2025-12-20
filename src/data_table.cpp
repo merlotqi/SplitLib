@@ -56,22 +56,24 @@ size_t DataTable::getNumRows() const {
   return columns[0].length();
 }
 
-Row DataTable::getRow(size_t index) const {
+Row DataTable::getRow(size_t index, const std::vector<int>& columnIdx) const {
   if (index >= getNumRows()) {
     throw std::out_of_range("index out of range");
   }
   Row row;
-  for (const auto& column : columns) {
+  for (const auto& idx : columnIdx) {
+    const auto& column = columns[idx];
     row[column.name] = column.getValue(index);
   }
   return row;
 }
 
-void DataTable::getRow(size_t index, Row& row) const {
+void DataTable::getRow(size_t index, Row& row, const std::vector<int>& columnIdx) const {
   if (index >= getNumRows()) {
     throw std::out_of_range("index out of range");
   }
-  for (const auto& column : columns) {
+  for (const auto& idx : columnIdx) {
+    const auto& column = columns[idx];
     row[column.name] = column.getValue(index);
   }
 }
@@ -164,18 +166,27 @@ bool DataTable::removeColumn(const std::string& name) {
   return true;
 }
 
-DataTable DataTable::clone() const {
+DataTable DataTable::clone(const std::vector<std::string>& columnNames) const {
   std::vector<Column> cloned_cols;
-  cloned_cols.reserve(columns.size());
-
-  for (const auto& col : columns) {
-    TypedArray cloned_data =
-        std::visit([](const auto& vec) -> TypedArray { return std::decay_t<decltype(vec)>(vec); }, col.data);
-
-    cloned_cols.emplace_back(Column{col.name, std::move(cloned_data)});
+  if (columnNames.empty()) {
+    cloned_cols.reserve(columns.size());
+    for (const auto& col : columns) {
+      TypedArray cloned_data = std::visit([](const auto& vec) -> TypedArray { return vec; }, col.data);
+      cloned_cols.emplace_back(Column{col.name, std::move(cloned_data)});
+    }
+  } else {
+    cloned_cols.reserve(columnNames.size());
+    for (const auto& name : columnNames) {
+      if (this->hasColumn(name)) {
+        const auto& col = this->getColumnByName(name);
+        TypedArray cloned_data = std::visit([](const auto& vec) -> TypedArray { return vec; }, col.data);
+        cloned_cols.emplace_back(Column{col.name, std::move(cloned_data)});
+      } else {
+        throw std::runtime_error("Column not found: " + name);
+      }
+    }
   }
-
-  return DataTable(std::move(cloned_cols));
+  return DataTable(cloned_cols);
 }
 
 DataTable DataTable::permuteRows(const std::vector<uint32_t>& indices) const {

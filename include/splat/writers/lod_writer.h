@@ -28,11 +28,9 @@
 #include <splat/data_table.h>
 #include <splat/types.h>
 
-#include <optional>
-
 namespace splat {
 
-void writeLod(const std::string& filename, const DataTable& table, std::optional<DataTable> envDataTable,
+void writeLod(const std::string& filename, const DataTable& table, DataTable* envDataTable,
               const std::string& outputFilename, Options options);
 
 }  // namespace splat

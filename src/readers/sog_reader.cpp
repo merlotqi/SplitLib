@@ -26,7 +26,7 @@
 #include <math.h>
 #include <splat/models/sog.h>
 #include <splat/readers/sog_reader.h>
-#include <splat/readers/webp-codec.h>
+#include <splat/webp-codec.h>
 #include <splat/strings.h>
 #include <splat/zip_reader.h>
 

@@ -26,6 +26,7 @@
 #pragma once
 
 #include <Eigen/Dense>
+#include <cmath>
 #include <map>
 #include <memory>
 #include <stdexcept>
@@ -33,7 +34,6 @@
 #include <type_traits>
 #include <variant>
 #include <vector>
-#include <cmath>
 
 namespace splat {
 
@@ -97,6 +97,16 @@ struct Column {
 
   size_t length() const {
     return std::visit([](const auto& arg) -> size_t { return arg.size(); }, data);
+  }
+
+  template <typename T>
+  const std::vector<T>& as() const {
+    return std::get<std::vector<T>>(data);
+  }
+
+  template <typename T>
+  std::vector<T>& as() {
+    return std::get<std::vector<T>>(data);
   }
 
   template <typename T>
@@ -242,6 +252,16 @@ struct Column {
   uint8_t* rawPointer() {
     return std::visit([](auto& vec) -> uint8_t* { return reinterpret_cast<uint8_t*>(vec.data()); }, data);
   }
+
+  void fillBuffer(float* dest) const {
+    std::visit(
+        [dest](const auto& vec) {
+          for (size_t i = 0; i < vec.size(); i++) {
+            dest[i] = static_cast<float>(vec[i]);
+          }
+        },
+        data);
+  }
 };
 
 class DataTable {
@@ -253,13 +273,12 @@ class DataTable {
 
   DataTable(const DataTable& other) = default;
   DataTable& operator=(const DataTable& other) = default;
-
   DataTable(DataTable&& other) = default;
   DataTable& operator=(DataTable&& other) = default;
 
   size_t getNumRows() const;
-  Row getRow(size_t index) const;
-  void getRow(size_t index, Row& row) const;
+  Row getRow(size_t index, const std::vector<int>& columnIdx = {}) const;
+  void getRow(size_t index, Row& row, const std::vector<int>& columnIdx = {}) const;
   void setRow(size_t index, const Row& row);
   size_t getNumColumns() const;
 
@@ -275,7 +294,7 @@ class DataTable {
   void addColumn(const Column& column);
   bool removeColumn(const std::string& name);
 
-  DataTable clone() const;
+  DataTable clone(const std::vector<std::string>& columnNames = {}) const;
   DataTable permuteRows(const std::vector<uint32_t>& indices) const;
 
   template <typename T>
