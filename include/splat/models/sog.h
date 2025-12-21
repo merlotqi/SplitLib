@@ -37,6 +37,10 @@ struct Meta {
   int count;
 
   struct {
+    std::string generator;
+  } asset;
+
+  struct {
     std::vector<float> mins;
     std::vector<float> maxs;
     std::vector<std::string> files;

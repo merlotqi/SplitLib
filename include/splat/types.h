@@ -85,9 +85,4 @@ struct Options {
   }
 };
 
-struct Param {
-  std::string name;
-  std::string value;
-};
-
 }  // namespace splat

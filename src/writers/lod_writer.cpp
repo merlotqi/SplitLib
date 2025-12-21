@@ -31,7 +31,11 @@
 #include <fstream>
 #include <iostream>
 #include <map>
+#include <numeric>
+#include <optional>
+#include <nlohmann/json.hpp>
 
+using json = nlohmann::json;
 namespace fs = std::filesystem;
 
 namespace splat {
@@ -49,33 +53,20 @@ struct MetaLod {
 
 struct MetaNode {
   Aabb bound;
-  std::vector<MetaLod> lods;  // optional
+  std::vector<MetaNode> children;  // optional
   std::map<int, MetaLod> lods;
 };
 
 struct LodMeta {
   size_t lodLevels;
-  std::string environment;
+  std::optional<std::string> environment;
   std::vector<std::string> filenames;
   MetaNode tree;
 };
 
 static void boundUnion(Aabb& result, const Aabb& a, const Aabb& b) {
-  const auto am = a.min;
-  const auto aM = a.max;
-  const auto bm = b.min;
-  const auto bM = b.max;
-
-  auto& rm = result.min;
-  auto& rM = result.max;
-
-  rm[0] = std::min(am[0], bm[0]);
-  rm[1] = std::min(am[1], bm[1]);
-  rm[2] = std::min(am[2], bm[2]);
-
-  rM[0] = std::max(aM[0], bM[0]);
-  rM[1] = std::max(aM[1], bM[1]);
-  rM[2] = std::max(aM[2], bM[2]);
+  result.min = a.min.cwiseMin(b.min);
+  result.max = a.max.cwiseMax(b.max);
 }
 
 static Aabb calcBound(const DataTable& dataTable, const std::vector<size_t>& indices) {
@@ -99,53 +90,66 @@ static Aabb calcBound(const DataTable& dataTable, const std::vector<size_t>& ind
                              -std::numeric_limits<float>::infinity());
 
   for (size_t index : indices) {
-    // a. Extract Position
-    Eigen::Vector3f pos(x[index], y[index], z[index]);
+    Eigen::Vector3f p(x[index], y[index], z[index]);
 
-    // b. Extract and Normalize Rotation
-    // Eigen::Quaternionf constructor order is (w, x, y, z)
-    Eigen::Quaternionf q(rw[index], rx[index], ry[index], rz[index]);
-    q.normalize();
+    Eigen::Quaternionf r(rw[index], rx[index], ry[index], rz[index]);
+    r.normalize();
 
-    // c. Extract Scale (Reversing log-transform: stored scale is ln(s))
-    float s0 = std::exp(sx[index]);
-    float s1 = std::exp(sy[index]);
-    float s2 = std::exp(sz[index]);
+    Eigen::Vector3f s(std::exp(sx[index]), std::exp(sy[index]), std::exp(sz[index]));
 
-    // d. Calculate the World-Space AABB of the Oriented Ellipsoid
-    // A Gaussian Splat is effectively an oriented ellipsoid.
-    // Instead of transforming 8 corners, we use the property:
-    // For a transformation matrix M = R * S, the AABB half-extents H' are:
-    // H'_i = sum_j |M_ij| * local_H_j. Since local_H is (1,1,1), H'_i = sum_j |M_ij|.
-    Eigen::Matrix3f rotMat = q.toRotationMatrix();
+    Eigen::Matrix4f mat4 = Eigen::Matrix4f::Identity();
+    mat4.block<3, 3>(0, 0) = r.toRotationMatrix();
+    mat4.block<3, 1>(0, 3) = p;
 
-    Eigen::Vector3f halfExtents;
-    for (int i = 0; i < 3; ++i) {
-      halfExtents[i] = std::abs(rotMat(i, 0) * s0) + std::abs(rotMat(i, 1) * s1) + std::abs(rotMat(i, 2) * s2);
+    Eigen::Vector3f local_min = -s;
+    Eigen::Vector3f local_max = s;
+    for (int i = 0; i < 8; ++i) {
+      Eigen::Vector3f corner;
+      corner << (i & 1 ? local_max.x() : local_min.x()), (i & 2 ? local_max.y() : local_min.y()),
+          (i & 4 ? local_max.z() : local_min.z());
+
+      Eigen::Vector4f transformed = mat4 * corner.homogeneous();
+      Eigen::Vector3f v3 = transformed.head<3>();
+
+      if (v3.array().isFinite().all()) {
+        overallMin = overallMin.cwiseMin(v3);
+        overallMax = overallMax.cwiseMax(v3);
+      } else {
+        // log
+        continue;
+      }
     }
-
-    Eigen::Vector3f currentMin = pos - halfExtents;
-    Eigen::Vector3f currentMax = pos + halfExtents;
-
-    // e. Validation Check (Skip NaNs or Infs)
-    if (!currentMin.array().isFinite().all() || !currentMax.array().isFinite().all()) {
-      continue;
-    }
-
-    // f. Expand global AABB
-    overallMin = overallMin.cwiseMin(currentMin);
-    overallMax = overallMax.cwiseMax(currentMax);
   }
 
   return {overallMin, overallMax};
 }
 
-static std::map<int, int> binIndices() {
-  auto recurse = [&]() {
+static std::map<int, std::vector<uint32_t>> binIndices(BTreeNode* parent, const std::vector<uint32_t>& lod) {
+  std::map<int, std::vector<uint32_t>> result;
 
+  std::function<void(BTreeNode*)> recurse = [&](BTreeNode* node) {
+    if (!node->indices.empty()) {
+      for (size_t i = 0; i < node->indices.size(); i++) {
+        const auto v = node->indices[i];
+        const auto lodValue = lod[i];
+        if (result.count(lodValue)) {
+          result.insert({lodValue, {v}});
+        } else {
+          result[lodValue].push_back(v);
+        }
+      }
+    } else {
+      if (node->left) {
+        recurse(node->left.get());
+      }
+      if (node->right) {
+        recurse(node->right.get());
+      }
+    }
   };
 
-  recurse();
+  recurse(parent);
+  return result;
 }
 
 void writeLod(const std::string& filename, const DataTable& dataTable, DataTable* envDataTable,
@@ -154,16 +158,144 @@ void writeLod(const std::string& filename, const DataTable& dataTable, DataTable
 
   // ensure top-level output folder exists
   fs::create_directories(outputDir);
+
   // write the environment sog
   if (envDataTable && envDataTable->getNumRows() > 0) {
     fs::path pathname = outputDir / "env" / "meta.json";
     fs::create_directories(pathname.parent_path());
     std::cout << "writing " << pathname.string() << "..." << std::endl;
-    writeSog(pathname.string(), *envDataTable, pathname.string(), options, {});
+    writeSog(pathname.string(), *envDataTable, pathname.string(), options);
   }
 
- // construct a kd-tree based on centroids from all lods
- auto centroidsTable = dataTable.clone({"x", "y", "z"});
+  // construct a kd-tree based on centroids from all lods
+  auto centroidsTable = dataTable.clone({"x", "y", "z"});
+
+  BTree btree(centroidsTable);
+  const size_t binSize = options.lodChunkCount * 1024;
+  const int binDim = options.lodChunkExtent;
+
+  std::map<size_t, std::vector<std::vector<std::vector<size_t>>>> lodFiles;
+  auto lodColumn = dataTable.getColumnByName("lod").as<float>();
+  std::vector<std::string> filenames;
+  size_t lodLevels = 0;
+
+  std::function<MetaNode(BTreeNode*)> build = [&](BTreeNode* node) -> MetaNode {
+    if (node->indices.empty() && (node->count > binSize || node->aabb.largestDim() > binDim)) {
+      MetaNode mNode;
+      mNode.children.push_back(build(node->left.get()));
+      mNode.children.push_back(build(node->right.get()));
+
+      mNode.bound.min.setZero();
+      mNode.bound.max.setZero();
+
+      boundUnion(mNode.bound, mNode.children[0].bound, mNode.children[1].bound);
+
+      return mNode;
+    }
+
+    std::map<size_t, MetaLod> lods;
+    auto bins = binIndices(node, lodColumn);
+
+    for (auto& [lodValue, indices] : bins) {
+      if (!lodFiles.count(lodValue)) {
+        lodFiles[lodValue] = {{}};
+      }
+
+      auto& fileList = lodFiles[lodValue];
+      const auto fileIndex = fileList.size() - 1;
+      auto& lastFile = fileList[fileIndex];
+
+      size_t fileSize =
+          std::accumulate(lastFile.begin(), lastFile.end(), size_t(0),
+                          [](size_t acc, const std::vector<uint32_t>& curr) { return acc + curr.size(); });
+
+      std::string filename = std::to_string(lodValue) + "_" + std::to_string(fileIndex) + "/meta.json";
+
+      auto it = std::find(filenames.begin(), filenames.end(), filename);
+      if (it == filenames.end()) {
+        it = filenames.insert(it, filename);
+      }
+      size_t fileIdxInMeta = std::distance(filenames.begin(), it);
+
+      lods.insert({lodValue, {fileIdxInMeta, fileSize, indices.size()}});
+
+      lastFile.push_back(indices);
+
+      if (fileSize + indices.size() > (size_t)binSize) {
+        fileList.push_back({});
+      }
+      lodLevels = std::max(lodLevels, lodValue + 1);
+    }
+
+    std::vector<uint32_t> allIndices;
+    for (auto const& [key, val] : bins) {
+      allIndices.insert(allIndices.end(), val.begin(), val.end());
+    }
+
+    auto bound = calcBound(dataTable, allIndices);
+
+    return {bound, lods};
+  };
+
+  MetaNode rootMeta = build(btree.root.get());
+
+  std::function<json(const MetaNode&)> metaToJson = [&](const MetaNode& mNode) -> json {
+    json j;
+    j["bound"] = {{"min", {mNode.bound.min.x(), mNode.bound.min.y(), mNode.bound.min.z()}},
+                  {"max", {mNode.bound.max.x(), mNode.bound.max.y(), mNode.bound.max.z()}}};
+
+    if (!mNode.children.empty()) {
+      j["children"] = json::array();
+      for (const auto& child : mNode.children) j["children"].push_back(metaToJson(child));
+    }
+
+    if (!mNode.lods.empty()) {
+      j["lods"] = json::object();
+      for (auto const& [lodKey, lodVal] : mNode.lods) {
+        j["lods"][std::to_string(lodKey)] = {{"file", lodVal.file}, {"offset", lodVal.offset}, {"count", lodVal.count}};
+      }
+    }
+    return j;
+  };
+
+  json meta;
+  meta["lodLevels"] = lodLevels;
+  if (envDataTable && envDataTable->getNumRows() > 0) {
+    meta["environment"] = "env/meta.json";
+  }
+  meta["environment"] = (envDataTable && envDataTable->getNumRows() > 0) ? "env/meta.json" : nullptr;
+  meta["filenames"] = filenames;
+  meta["tree"] = metaToJson(rootMeta);
+
+  // filename << meta.dump(); //
+
+  // write file units
+  for (auto&& [lodValue, fileUnits] : lodFiles) {
+    for (size_t i = 0; i < fileUnits.size(); i++) {
+      auto& fileUnit = fileUnits[i];
+      if (fileUnit.empty()) continue;
+
+      fs::path pathname = outputDir / (std::to_string(lodValue) + "_" + std::to_string(i)) / "meta.json";
+      fs::create_directories(pathname.parent_path());
+
+      size_t totalIndices =
+          std::accumulate(fileUnit.begin(), fileUnit.end(), size_t(0),
+                          [](size_t acc, const std::vector<uint32_t>& curr) { return acc + curr.size(); });
+
+      std::vector<uint32_t> indices(totalIndices, 0);
+      size_t offset = 0;
+      for (size_t j = 0; j < fileUnit.size(); j++) {
+        std::copy(fileUnit[j].begin(), fileUnit[j].end(), indices.begin() + offset);
+        generateOrdering(dataTable, indices.data() + offset, fileUnit[j].size());
+        offset += fileUnit[j].size();
+      }
+
+      // construct a new table from the ordered data
+      DataTable unitDataTable = dataTable.permuteRows(indices);
+
+      writeSog(pathname.string(), unitDataTable, pathname.string(), options);
+    }
+  }
 }
 
 }  // namespace splat

@@ -34,6 +34,7 @@
 #include <type_traits>
 #include <variant>
 #include <vector>
+#include <algorithm>
 
 namespace splat {
 
@@ -147,32 +148,31 @@ struct Column {
 
     auto visitor = [index, value](auto& vec) {
       using VectorType = std::decay_t<decltype(vec)>;
-      using InternalType = typename VectorType::value_type;
+      using Q = typename VectorType::value_type;
 
       if constexpr (std::is_same_v<T, std::string>) {
         // Handle string input
         const std::string& str_value = value;
         try {
-          if constexpr (std::is_same_v<InternalType, int8_t> || std::is_same_v<InternalType, int16_t> ||
-                        std::is_same_v<InternalType, int32_t>) {
+          if constexpr (std::is_same_v<Q, int8_t> || std::is_same_v<Q, int16_t> || std::is_same_v<Q, int32_t>) {
             // For signed integers
             long long temp = std::stoll(str_value);
-            if (temp > static_cast<long long>(std::numeric_limits<InternalType>::max()) ||
-                temp < static_cast<long long>(std::numeric_limits<InternalType>::min())) {
+            if (temp > static_cast<long long>(std::numeric_limits<Q>::max()) ||
+                temp < static_cast<long long>(std::numeric_limits<Q>::min())) {
               throw std::range_error("String value out of range for signed integer type.");
             }
-            vec[index] = static_cast<InternalType>(temp);
-          } else if constexpr (std::is_same_v<InternalType, uint8_t> || std::is_same_v<InternalType, uint16_t> ||
-                               std::is_same_v<InternalType, uint32_t>) {
+            vec[index] = static_cast<Q>(temp);
+          } else if constexpr (std::is_same_v<Q, uint8_t> || std::is_same_v<Q, uint16_t> ||
+                               std::is_same_v<Q, uint32_t>) {
             // For unsigned integers
             unsigned long long temp = std::stoull(str_value);
-            if (temp > static_cast<unsigned long long>(std::numeric_limits<InternalType>::max())) {
+            if (temp > static_cast<unsigned long long>(std::numeric_limits<Q>::max())) {
               throw std::range_error("String value out of range for unsigned integer type.");
             }
-            vec[index] = static_cast<InternalType>(temp);
-          } else if constexpr (std::is_same_v<InternalType, float>) {
+            vec[index] = static_cast<Q>(temp);
+          } else if constexpr (std::is_same_v<Q, float>) {
             vec[index] = std::stof(str_value);
-          } else if constexpr (std::is_same_v<InternalType, double>) {
+          } else if constexpr (std::is_same_v<Q, double>) {
             vec[index] = std::stod(str_value);
           } else {
             throw std::runtime_error("Unsupported type for string conversion.");
@@ -186,24 +186,24 @@ struct Column {
         // Handle non-string input
         using ValueType = std::decay_t<T>;
 
-        if constexpr (!std::is_convertible_v<ValueType, InternalType>) {
+        if constexpr (!std::is_convertible_v<ValueType, Q>) {
           throw std::runtime_error("Input type cannot be converted to internal column type.");
         }
 
         // Check for potential overflow/truncation
-        if constexpr (std::is_integral_v<InternalType>) {
+        if constexpr (std::is_integral_v<Q>) {
           // Check if value fits in internal type
           if constexpr (std::is_integral_v<ValueType>) {
             // Both are integral types
-            if (value > static_cast<ValueType>(std::numeric_limits<InternalType>::max()) ||
-                value < static_cast<ValueType>(std::numeric_limits<InternalType>::min())) {
+            if (value > static_cast<ValueType>(std::numeric_limits<Q>::max()) ||
+                value < static_cast<ValueType>(std::numeric_limits<Q>::min())) {
               throw std::range_error("Value exceeds range of internal integer type.");
             }
           } else if constexpr (std::is_floating_point_v<ValueType>) {
             // Floating point to integer conversion
             // Check for overflow
-            if (value > static_cast<ValueType>(std::numeric_limits<InternalType>::max()) ||
-                value < static_cast<ValueType>(std::numeric_limits<InternalType>::min())) {
+            if (value > static_cast<ValueType>(std::numeric_limits<Q>::max()) ||
+                value < static_cast<ValueType>(std::numeric_limits<Q>::min())) {
               throw std::range_error("Value exceeds range of internal integer type.");
             }
             // Check for truncation
@@ -211,9 +211,9 @@ struct Column {
               throw std::range_error("Floating-point value cannot be exactly represented in internal integer type.");
             }
           }
-        } else if constexpr (std::is_floating_point_v<InternalType>) {
+        } else if constexpr (std::is_floating_point_v<Q>) {
           // Floating point to floating point conversion
-          if constexpr (std::is_same_v<InternalType, float> && std::is_same_v<ValueType, double>) {
+          if constexpr (std::is_same_v<Q, float> && std::is_same_v<ValueType, double>) {
             // double to float conversion - check for overflow
             if (std::abs(value) > std::numeric_limits<float>::max()) {
               throw std::range_error("Double value exceeds float range.");
@@ -222,7 +222,7 @@ struct Column {
         }
 
         // Safe to assign
-        vec[index] = static_cast<InternalType>(value);
+        vec[index] = static_cast<Q>(value);
       }
     };
 
@@ -258,6 +258,71 @@ struct Column {
         [dest](const auto& vec) {
           for (size_t i = 0; i < vec.size(); i++) {
             dest[i] = static_cast<float>(vec[i]);
+          }
+        },
+        data);
+  }
+
+  template <typename T>
+  bool every(T value) const {
+    return std::visit(
+        [value](const auto& vec) -> bool {
+          using Q = typename std::decay_t<decltype(vec)>::value_type;
+          if constexpr (!std::is_convertible_v<T, Q>) {
+            throw std::runtime_error("Requested type cannot be safely compared to column's internal type.");
+          }
+
+          if constexpr (std::is_floating_point_v<Q> || std::is_floating_point_v<T>) {
+            const auto epsilon = static_cast<Q>(1e-10);
+            return std::all_of(vec.begin(), vec.end(),
+                               [value, epsilon](Q x) { return std::abs(x - static_cast<Q>(value)) < epsilon; });
+          } else {
+            return std::all_of(vec.begin(), vec.end(), [value](Q x) { return x == static_cast<Q>(value); });
+          }
+        },
+        data);
+  }
+
+  template <typename T>
+  bool some(T value) const {
+    return std::visit(
+        [value](const auto& vec) -> bool {
+          using Q = typename std::decay_t<decltype(vec)>::value_type;
+
+          try {
+            Q converted_value;
+
+            if constexpr (std::is_same_v<Q, int8_t> || std::is_same_v<Q, int16_t> || std::is_same_v<Q, int32_t>) {
+              long long temp = std::stoll(value);
+              if (temp > static_cast<long long>(std::numeric_limits<Q>::max()) ||
+                  temp < static_cast<long long>(std::numeric_limits<Q>::min())) {
+                throw std::range_error("String value out of range");
+              }
+              converted_value = static_cast<Q>(temp);
+            } else if constexpr (std::is_same_v<Q, uint8_t> || std::is_same_v<Q, uint16_t> ||
+                                 std::is_same_v<Q, uint32_t>) {
+              unsigned long long temp = std::stoull(value);
+              if (temp > static_cast<unsigned long long>(std::numeric_limits<Q>::max())) {
+                throw std::range_error("String value out of range");
+              }
+              converted_value = static_cast<Q>(temp);
+            } else if constexpr (std::is_same_v<Q, float>) {
+              converted_value = std::stof(value);
+            } else if constexpr (std::is_same_v<Q, double>) {
+              converted_value = std::stod(value);
+            } else {
+              throw std::runtime_error("Unsupported type for string conversion");
+            }
+
+            if constexpr (std::is_floating_point_v<Q>) {
+              const auto epsilon = static_cast<Q>(1e-10);
+              return std::all_of(vec.begin(), vec.end(),
+                                 [converted_value, epsilon](Q x) { return std::abs(x - converted_value) < epsilon; });
+            } else {
+              return std::all_of(vec.begin(), vec.end(), [converted_value](Q x) { return x == converted_value; });
+            }
+          } catch (const std::exception& e) {
+            throw std::runtime_error(std::string("String conversion failed: ") + e.what());
           }
         },
         data);

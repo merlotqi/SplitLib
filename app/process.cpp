@@ -23,43 +23,34 @@
  * For more information, visit the project's homepage or contact the author.
  */
 
-#pragma once
 
-#include <splat/data_table.h>
-
-#include <memory>
-#include <vector>
+#include "process.h"
+#include <algorithm>
+#include <cmath>
+#include <set>
 
 namespace splat {
 
-struct AABB {
-  std::vector<float> min;
-  std::vector<float> max;
-
-  AABB(const std::vector<float>& min = {}, const std::vector<float>& max = {});
-
-  int largestAxis() const;
-  float largestDim() const;
-  AABB& fromCentroids(const DataTable& centroids, const std::vector<uint32_t>& indices);
-};
-
-struct BTreeNode {
-  size_t count;
-  AABB aabb;
+static DataTable filter(const DataTable& dataTable, std::function<bool(const Row&, size_t)> predicate) {
   std::vector<uint32_t> indices;
-  std::unique_ptr<BTreeNode> left;
-  std::unique_ptr<BTreeNode> right;
-};
+  const size_t numRows = dataTable.getNumRows();
+  indices.reserve(numRows);
 
-class BTree {
- public:
-  DataTable centroids;
-  std::unique_ptr<BTreeNode> root;
+  size_t index = 0;
+  Row row;
+  for (size_t i = 0; i < dataTable.getNumRows(); i++) {
+    dataTable.getRow(i, row);
+    if (predicate && predicate(row, i)) {
+      indices.push_back(static_cast<uint32_t>(i));
+    }
+  }
 
-  BTree(const DataTable& centroids);
+  return dataTable.permuteRows(indices);
+}
 
- private:
-  std::unique_ptr<BTreeNode> recurse(std::vector<uint32_t> indices);
-};
+
+DataTable processDataTable(DataTable& dataTable, const std::vector<ProcessAction>& processActions) {
+  return DataTable();
+}
 
 }  // namespace splat

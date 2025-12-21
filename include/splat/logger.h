@@ -26,33 +26,73 @@
 #pragma once
 
 #include <string>
+#include <string_view>
+#include <iostream>
+#include <mutex>
+#include <filesystem>
+#include <absl/strings/str_format.h>
 
 namespace splat {
 
-namespace logger {
+enum class logLevel {
+  silent,
+  normal
+};
 
-enum Level { INFO = 0, WARN = 1, ERROR = 2, DEBUG = 3 };
+class Logger {
+  logLevel level = logLevel::normal;
+  std::mutex log_mutex;
 
-void setLevel(Level level);
-Level getLevel();
+  Logger() = default;
 
-#ifdef _WIN32
-void addOutputFile(const std::wstring& path);
-#else
-void addOutputFile(const std::string& path);
-#endif
+  template <typename... Args>
+  void log_internal(std::string_view prefix, std::string_view file, int line, std::string_view format, Args&&... args) {
+    if (level == logLevel::silent) return;
 
-void closeOutputFile();
+    std::lock_guard<std::mutex> lock(log_mutex);
 
-void info(const char* fmt, ...);
-void warn(const char* fmt, ...);
-void error(const char* fmt, ...);
-void debug(const char* fmt, ...);
+    std::string formatted_msg;
+    if constexpr (sizeof...(args) == 0) {
+      formatted_msg = std::string(format);
+    } else {
+      formatted_msg = absl::StrFormat(std::string(format), std::forward<Args>(args)...);
+    }
 
-}  // namespace logger
+    std::filesystem::path file_path(file);
+    std::cout << "[" << prefix << "] " << file_path.filename().string() << ":" << line << " > " << formatted_msg
+              << std::endl;
+  }
+
+ public:
+  static Logger& instance()
+  {
+    static Logger instance;
+    return instance;
+  }
+
+  Logger(const Logger&) = delete;
+  Logger& operator=(const Logger&) = delete;
+
+  void setQuiet(bool quiet) { level = quiet ? logLevel::silent : logLevel::normal; }
+
+  template <typename... Args>
+  void info(const char* file, int line, std::string_view format, Args&&... args) {
+    log_internal("INFO", file, line, format, std::forward<Args>(args)...);
+  }
+
+  template <typename... Args>
+  void warn(const char* file, int line, std::string_view format, Args&&... args) {
+    log_internal("WARN", file, line, format, std::forward<Args>(args)...);
+  }
+
+  template <typename... Args>
+  void error(const char* file, int line, std::string_view format, Args&&... args) {
+    log_internal("ERROR", file, line, format, std::forward<Args>(args)...);
+  }
+};
+
 }  // namespace splat
 
-#define INFO(fmt, ...) splat::logger::info(fmt, ##__VA_ARGS__)
-#define WARN(fmt, ...) splat::logger::warn(fmt, ##__VA_ARGS__)
-#define ERROR(fmt, ...) splat::logger::error(fmt, ##__VA_ARGS__)
-#define DEBUG(fmt, ...) splat::logger::debug(fmt, ##__VA_ARGS__)
+#define LOG_INFO(format, ...) splat::Logger::instance().info(__FILE__, __LINE__, format, ##__VA_ARGS__)
+#define LOG_WARN(format, ...) splat::Logger::instance().warn(__FILE__, __LINE__, format, ##__VA_ARGS__)
+#define LOG_ERROR(format, ...) splat::Logger::instance().error(__FILE__, __LINE__, format, ##__VA_ARGS__)

@@ -23,43 +23,61 @@
  * For more information, visit the project's homepage or contact the author.
  */
 
-#pragma once
-
 #include <splat/data_table.h>
 
-#include <memory>
-#include <vector>
+#include <Eigen/Dense>
+#include <string>
+#include <variant>
+
 
 namespace splat {
 
-struct AABB {
-  std::vector<float> min;
-  std::vector<float> max;
-
-  AABB(const std::vector<float>& min = {}, const std::vector<float>& max = {});
-
-  int largestAxis() const;
-  float largestDim() const;
-  AABB& fromCentroids(const DataTable& centroids, const std::vector<uint32_t>& indices);
+struct Translate {
+  Eigen::Vector3f value;
 };
 
-struct BTreeNode {
-  size_t count;
-  AABB aabb;
-  std::vector<uint32_t> indices;
-  std::unique_ptr<BTreeNode> left;
-  std::unique_ptr<BTreeNode> right;
+struct Rotate {
+  Eigen::Vector3f value;
 };
 
-class BTree {
- public:
-  DataTable centroids;
-  std::unique_ptr<BTreeNode> root;
-
-  BTree(const DataTable& centroids);
-
- private:
-  std::unique_ptr<BTreeNode> recurse(std::vector<uint32_t> indices);
+struct Scale {
+  float value;
 };
+
+struct FilterNaN {};
+
+struct FilterByValue {
+  std::string columnName;
+  std::string comparator;  // lt, lte, gt, gte, eq, neq
+  float value;
+};
+
+struct FilterBands {
+  int value;  // 0, 1, 2, 3
+};
+
+struct FilterBox {
+  Eigen::Vector3f min;
+  Eigen::Vector3f max;
+};
+
+struct FilterSphere {
+  Eigen::Vector3f center;
+  float radius;
+};
+
+struct Param {
+  std::string name;
+  std::string value;
+};
+
+struct Lod {
+  int value;
+};
+
+using ProcessAction =
+    std::variant<Translate, Rotate, Scale, FilterNaN, FilterByValue, FilterBands, FilterBox, FilterSphere, Param, Lod>;
+
+DataTable processDataTable(DataTable& dataTable, const std::vector<ProcessAction>& processActions);
 
 }  // namespace splat
