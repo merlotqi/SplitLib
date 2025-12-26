@@ -26,47 +26,52 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
+    # ---------------- CUDA ----------------
     - name: Install CUDA Toolkit
       uses: Jimver/cuda-toolkit@v0.2.16
-      id: cuda-toolkit
       with:
         cuda: ${{ matrix.cuda_version }}
-        method: 'network'
+        method: network
 
+    # ---------------- Linux deps ----------------
     - name: Install Dependencies (Ubuntu)
       if: runner.os == 'Linux'
       run: |
         sudo apt-get update
-        sudo apt-get install -y libwebp-dev libeigen3-dev nlohmann-json3-dev libabsl-dev zlib1g-dev
+        sudo apt-get install -y \
+          libwebp-dev \
+          libeigen3-dev \
+          nlohmann-json3-dev \
+          libabsl-dev \
+          zlib1g-dev \
+          pkg-config
 
+    # ---------------- Windows deps ----------------
     - name: Install Dependencies (Windows via vcpkg)
       if: runner.os == 'Windows'
       run: |
         vcpkg install libwebp eigen3 nlohmann-json abseil zlib --triplet x64-windows
 
-    - name: Set reusable strings
-      id: strings
-      shell: bash
+    # ---------------- Configure ----------------
+    - name: Configure CMake (Linux)
+      if: runner.os == 'Linux'
       run: |
-        echo "build-output-dir=${{ github.workspace }}/build" >> "$GITHUB_OUTPUT"
+        cmake -S . -B build \
+          -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}
 
-    - name: Configure CMake
-      shell: bash
+    - name: Configure CMake (Windows)
+      if: runner.os == 'Windows'
+      shell: pwsh
       run: |
-        VCPKG_TOOLCHAIN=""
-        if [ "${{ runner.os }}" == "Windows" ]; then
-          VCPKG_TOOLCHAIN="-DCMAKE_TOOLCHAIN_FILE=$VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake"
-        fi
-        
-        cmake -B ${{ steps.strings.outputs.build-output-dir }} \
-          -DCMAKE_CXX_COMPILER=${{ matrix.cpp_compiler }} \
-          -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
-          $VCPKG_TOOLCHAIN \
-          -S ${{ github.workspace }}
+        cmake -S . -B build `
+          -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} `
+          -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake"
 
+    # ---------------- Build ----------------
     - name: Build
-      run: cmake --build ${{ steps.strings.outputs.build-output-dir }} --config ${{ matrix.build_type }}
+      run: cmake --build build --config ${{ matrix.build_type }}
 
+    # ---------------- Test ----------------
     - name: Test
-      working-directory: ${{ steps.strings.outputs.build-output-dir }}
+      working-directory: build
       run: ctest --build-config ${{ matrix.build_type }} --output-on-failure
