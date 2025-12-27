@@ -31,7 +31,7 @@
 
 namespace splat {
 
-std::vector<uint32_t> gpu_cluster(const std::vector<float>& h_points, const std::vector<float>& h_centroids,
-                                  uint32_t num_points, uint32_t num_centroids, uint32_t num_columns);
+void gpu_cluster_3d_execute(const std::vector<float>& h_points, const std::vector<float>& h_centroids,
+                            std::vector<uint32_t>& h_labels);
 
 }  // namespace splat

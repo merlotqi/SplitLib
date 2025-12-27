@@ -31,6 +31,7 @@
 #include <splat/webp-codec.h>
 #include <splat/writers/sog_writer.h>
 #include <splat/zip_writer.h>
+#include <splat/maths/morton-order.h>
 
 #include <cmath>
 #include <filesystem>
@@ -129,12 +130,15 @@ static std::tuple<std::unique_ptr<DataTable>, std::unique_ptr<DataTable>> cluste
 
   std::vector<Column> resultColumns;
   auto names = dataTable->getColumnNames();
+  for (auto& name : names) {
+    resultColumns.push_back({name, std::vector<uint8_t>(numRows)});
+  }
   for (size_t i = 0; i < numColumns; i++) {
-    std::vector<uint8_t> colData(numRows);
-    for (size_t j = 0; j < numRows; j++) {
-      colData[j] = static_cast<uint8_t>(labels[i * numRows + j]);
+    auto& vec = resultColumns[i].asSpan<uint8_t>();
+    size_t startOffset = i * numRows;
+    for (size_t r = 0; r < numRows; ++r) {
+      vec[r] = static_cast<uint8_t>(labels[startOffset + r]);
     }
-    resultColumns.push_back({names[i], std::move(colData)});
   }
 
   return {std::move(centroids), std::make_unique<DataTable>(resultColumns)};
@@ -142,17 +146,17 @@ static std::tuple<std::unique_ptr<DataTable>, std::unique_ptr<DataTable>> cluste
 
 void writeSog(const std::string& filename, DataTable* dataTable, const std::string& outputFilename,
               const Options& options) {
-  const auto isBundle = absl::EndsWith(absl::AsciiStrToLower(filename), ".sog");
+  const auto isBundle = absl::EndsWith(absl::AsciiStrToLower(outputFilename), ".sog");
   std::unique_ptr<ZipWriter> zipWriter = isBundle ? std::make_unique<ZipWriter>(outputFilename) : nullptr;
 
   // generateIndices
   std::vector<uint32_t> indices(dataTable->getNumRows());
   std::iota(indices.begin(), indices.end(), 0);
-  generateOrdering(dataTable, absl::MakeSpan(indices));
+  sortMortonOrder(dataTable, absl::MakeSpan(indices));
 
   const size_t numRows = indices.size();
-  const size_t width = ceil(sqrt(numRows) / 4) * 4;
-  const size_t height = std::ceil(numRows / width / 4) * 4;
+  const size_t width = ceil(sqrt(static_cast<double>(numRows)) / 4) * 4;
+  const size_t height = std::ceil(static_cast<double>(numRows) / width / 4) * 4;
   const size_t channels = 4;
 
   // the layout function determines how the data is packed into the output texture.
@@ -280,7 +284,7 @@ void writeSog(const std::string& filename, DataTable* dataTable, const std::stri
 
   auto writeScales = [&]() {
     auto&& [centroids, labels] =
-        cluster1d(dataTable->clone({"scale_0, scale_1, scale_2"}).release(), options.iterations);
+        cluster1d(dataTable->clone({"scale_0", "scale_1", "scale_2"}).release(), options.iterations);
 
     writeTableData("scales.webp", labels.release(), width, height);
 

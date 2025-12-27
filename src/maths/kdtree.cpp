@@ -124,7 +124,11 @@ std::unique_ptr<KdTreeNode> KdTree::build(std::vector<size_t>& indices, size_t s
   auto left = build(indices, start, mid, depth + 1);
   auto right = build(indices, mid + 1, end, depth + 1);
 
-  return std::make_unique<KdTreeNode>(indices[mid], 1 + left->count + right->count, std::move(left), std::move(right));
+  size_t count = 1;
+  count += left ? left->count : 0;
+  count += right ? right->count : 0;
+
+  return std::make_unique<KdTreeNode>(indices[mid], count, std::move(left), std::move(right));
 }
 
 }  // namespace splat

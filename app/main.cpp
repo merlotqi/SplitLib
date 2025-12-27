@@ -22,10 +22,6 @@
  *
  * For more information, visit the project's homepage or contact the author.
  */
-#ifdef _WIN32
-#define UN
-#include <Windows.h>
-#endif
 
 #include <absl/flags/flag.h>
 #include <absl/flags/parse.h>
@@ -70,50 +66,15 @@ ABSL_FLAG(std::string, gpu, "-1", "Select device for SOG compression: GPU adapte
 ABSL_FLAG(std::string, lod_select, "", "Comma-separated LOD levels to read from LCC input");
 ABSL_FLAG(std::string, viewer_settings, "", "HTML viewer settings JSON file");
 
-ABSL_FLAG(std::vector<std::string>, translate, {}, "Translate splats by (x, y, z). Can be repeated");
-ABSL_FLAG(std::vector<std::string>, rotate, {}, "Rotate splats by Euler angles (x, y, z), in degrees. Can be repeated");
-ABSL_FLAG(std::vector<std::string>, scale, {}, "Uniformly scale splats by factor. Can be repeated");
-ABSL_FLAG(std::vector<std::string>, filter_harmonics, {}, "Remove spherical harmonic bands > n. Can be repeated");
-ABSL_FLAG(std::vector<std::string>, filter_box, {}, "Remove Gaussians outside box (min, max corners). Can be repeated");
-ABSL_FLAG(std::vector<std::string>, filter_sphere, {},
-          "Remove Gaussians outside sphere (center, radius). Can be repeated");
-ABSL_FLAG(std::vector<std::string>, filter_value, {}, "Keep splats where <name> <cmp> <value>. Can be repeated");
-ABSL_FLAG(std::vector<std::string>, lod, {}, "Specify the level of detail, n >= 0. Can be repeated");
-ABSL_FLAG(std::vector<std::string>, params, {}, "Additional parameters. Can be repeated");
-
-ABSL_FLAG(int32_t, filter_nan_count, 0, "Number of times --filter-nan was specified");
+ABSL_FLAG(float, lod, {}, "Specify the level of detail, n >= 0. Can be repeated");
 
 static std::tuple<std::vector<File>, Options> parseArguments(int argc, char** argv) {
-  auto parseNumber = [](absl::string_view value) {
-    float result;
-    if (!absl::SimpleAtof(value, &result)) {
-      throw std::runtime_error("Invalid number value" + std::string(value));
-    }
-    return result;
-  };
-
   auto parseInteger = [](absl::string_view value) {
     int result;
     if (!absl::SimpleAtoi(value, &result)) {
       throw std::runtime_error("Invalid number value" + std::string(value));
     }
     return result;
-  };
-
-  auto parseVec3 = [parseNumber](absl::string_view value) {
-    std::vector<absl::string_view> parts = absl::StrSplit(value, ',');
-    if (parts.size() != 3) {
-      throw std::runtime_error("Invalid Vec3 value: " + std::string(value));
-    }
-    return Eigen::Vector3f(parseNumber(parts[0]), parseNumber(parts[1]), parseNumber(parts[2]));
-  };
-
-  auto parseComparator = [](absl::string_view value) -> std::string {
-    static const std::set<absl::string_view> valid = {"lt", "lte", "gt", "gte", "eq", "neq"};
-    if (valid.find(value) == valid.end()) {
-      throw std::runtime_error("Invalid comparator value: " + std::string(value));
-    }
-    return std::string(value);
   };
 
   absl::SetProgramUsageMessage(
@@ -130,7 +91,7 @@ static std::tuple<std::vector<File>, Options> parseArguments(int argc, char** ar
   options.iterations = absl::GetFlag(FLAGS_iterations);
   options.lodChunkCount = absl::GetFlag(FLAGS_lod_chunk_count);
   options.lodChunkExtent = absl::GetFlag(FLAGS_lod_chunk_extent);
-
+  
   // Parse gpu option - can be a number or "cpu"
   std::string gpu_val = absl::GetFlag(FLAGS_gpu);
   if (gpu_val == "cpu") {
@@ -157,54 +118,6 @@ static std::tuple<std::vector<File>, Options> parseArguments(int argc, char** ar
 
       absl::string_view name = arg;
       while (absl::ConsumePrefix(&name, "-")) {
-      }
-
-      auto getNextValue = [&]() {
-        if (i + 1 >= remaining_args.size())
-          throw std::runtime_error("Action " + std::string(arg) + " requires a value.");
-        return absl::string_view(remaining_args[++i]);
-      };
-
-      if (name == "t" || name == "translate") {
-        current.processActions.push_back(Translate{parseVec3(getNextValue())});
-      } else if (name == "r" || name == "rotate") {
-        current.processActions.push_back(Rotate{parseVec3(getNextValue())});
-      } else if (name == "s" || name == "scale") {
-        current.processActions.push_back(Scale{parseNumber(getNextValue())});
-      } else if (name == "N" || name == "filter-nan") {
-        current.processActions.push_back(FilterNaN{});
-      } else if (name == "V" || name == "filter-value") {
-        std::vector<std::string> parts = absl::StrSplit(getNextValue(), ',');
-        if (parts.size() != 3) throw std::runtime_error("Invalid filter-value");
-        current.processActions.push_back(FilterByValue{parts[0], parseComparator(parts[1]), parseNumber(parts[2])});
-      } else if (name == "H" || name == "filter-harmonics") {
-        current.processActions.push_back(FilterBands{parseInteger(getNextValue())});
-      } else if (name == "B" || name == "filter-box") {
-        std::vector<absl::string_view> parts = absl::StrSplit(getNextValue(), ',');
-        if (parts.size() != 6) throw std::runtime_error("Invalid filter-box");
-
-        float defaults[] = {-INFINITY, -INFINITY, -INFINITY, INFINITY, INFINITY, INFINITY};
-        float values[6] = {0};
-        for (int j = 0; j < 6; ++j) {
-          if (parts[j].empty() || parts[j] == "-")
-            values[j] = defaults[j];
-          else
-            values[j] = parseNumber(parts[j]);
-        }
-        current.processActions.push_back(
-            FilterBox{{values[0], values[1], values[2]}, {values[3], values[4], values[5]}});
-      } else if (name == "S" || name == "filter-sphere") {
-        std::vector<absl::string_view> parts = absl::StrSplit(getNextValue(), ',');
-        if (parts.size() != 4) throw std::runtime_error("Invalid filter-sphere");
-        current.processActions.push_back(
-            FilterSphere{{parseNumber(parts[0]), parseNumber(parts[1]), parseNumber(parts[2])}, parseNumber(parts[3])});
-      } else if (name == "p" || name == "params") {
-        for (auto p : absl::StrSplit(getNextValue(), ',')) {
-          std::pair<std::string, std::string> kv = absl::StrSplit(p, absl::MaxSplits('=', 1));
-          current.processActions.push_back(Param{kv.first, kv.second});
-        }
-      } else if (name == "l" || name == "lod") {
-        current.processActions.push_back(Lod{parseInteger(getNextValue())});
       }
     }
   }
@@ -328,40 +241,30 @@ static void writeFile(const std::string& filename, DataTable* dataTable, DataTab
 }
 
 static bool isGSDataTable(const DataTable* dataTable) {
-  static std::vector<std::string> required_columns = {
-      "x",      "y",      "z",      "rot_0', 'rot_1', 'rot_2', 'rot_3", "scale_0", "scale_1", "scale_2", "f_dc_0",
-      "f_dc_1", "f_dc_2", "opacity"};
+  static std::vector<std::string> required_columns = {"x",      "y",      "z",       "rot_0",   "rot_1",
+                                                      "rot_2",  "rot_3",  "scale_0", "scale_1", "scale_2",
+                                                      "f_dc_0", "f_dc_1", "f_dc_2",  "opacity"};
 
   bool gs = std::all_of(required_columns.begin(), required_columns.end(),
                         [&](const std::string& c) { return dataTable->hasColumn(c); });
   return gs;
 }
 
-static std::unique_ptr<DataTable> combine(const std::vector<std::unique_ptr<DataTable>>& dataTables) { return nullptr; }
+static std::unique_ptr<DataTable> combine(std::vector<std::unique_ptr<DataTable>>& dataTables) {
+  if (dataTables.empty()) {
+    return nullptr;
+  }
+  if (dataTables.size() == 1) {
+    return std::move(dataTables.at(0));
+  }
+}
 
 int main(int argc, char** argv) {
-  #ifdef _WIN32
-  SetConsoleOutputCP(CP_UTF8);
-  SetConsoleCP(CP_UTF8);
-#endif
-    
-    std::chrono::time_point startTime = std::chrono::high_resolution_clock::now();
+  std::chrono::time_point startTime = std::chrono::high_resolution_clock::now();
 
   auto [files, options] = parseArguments(argc, argv);
   if (absl::GetFlag(FLAGS_help)) {
-    std::cout << "Usage: " << "SplatTransform" << " [OPTIONS] input_files...\n\n";
-    std::cout << "ACTIONS (can be repeated, in any order):\n";
-    std::cout << "  --translate <x,y,z>          Translate splats by (x, y, z)\n";
-    std::cout << "  --rotate <x,y,z>             Rotate splats by Euler angles (x, y, z), in degrees\n";
-    std::cout << "  --scale <factor>             Uniformly scale splats by factor\n";
-    std::cout << "  --filter-harmonics <0|1|2|3> Remove spherical harmonic bands > n\n";
-    std::cout << "  --filter-nan                 Remove Gaussians with NaN or Inf values\n";
-    std::cout << "  --filter-box <x,y,z,X,Y,Z>   Remove Gaussians outside box (min, max corners)\n";
-    std::cout << "  --filter-sphere <x,y,z,radius> Remove Gaussians outside sphere (center, radius)\n";
-    std::cout << "  --filter-value <name,cmp,value> Keep splats where <name> <cmp> <value>\n";
-    std::cout << "                                 cmp belong {lt,lte,gt,gte,eq,neq}\n";
-    std::cout << "  --lod <n>                    Specify the level of detail, n >= 0.\n\n";
-
+    std::cout << "Usage: SplatTransform [OPTIONS] input_file output_file\n\n";
     std::cout << "GLOBAL OPTIONS:\n";
     std::cout << "  --help                       Show this help and exit\n";
     std::cout << "  --version                    Show version and exit\n";
@@ -375,6 +278,9 @@ int main(int argc, char** argv) {
     std::cout << "  --lod-select <n,n,...>       Comma-separated LOD levels to read from LCC input\n";
     std::cout << "  --lod-chunk-count <n>        Approximate number of Gaussians per LOD chunk in K. Default: 512\n";
     std::cout << "  --lod-chunk-extent <n>       Approximate size of an LOD chunk in world units (m). Default: 16\n";
+    std::cout << "\nFILE ACTIONS (can be specified between files):\n";
+    std::cout << "  --lod <n>                    Specify the level of detail, n >= 0\n";
+    std::cout << "  --params <key=value,...>     Additional parameters\n";
     return 0;
   }
 
@@ -478,6 +384,9 @@ int main(int argc, char** argv) {
     }
 
     LOG_INFO("Loaded %d gaussians", dataTable->getNumRows());
+
+    // template
+    dataTable->addColumn({"lod", std::vector<float>(dataTable->getNumRows(), 0.f)});
 
     writeFile(outputFilename.string(), dataTable.release(), envDataTable ? envDataTable.release() : nullptr, options);
 

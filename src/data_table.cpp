@@ -61,9 +61,19 @@ Row DataTable::getRow(size_t index, const std::vector<int>& columnIdx) const {
     throw std::out_of_range("index out of range");
   }
   Row row;
-  for (const auto& idx : columnIdx) {
-    const auto& column = columns[idx];
-    row[column.name] = column.getValue(index);
+
+  if (columnIdx.empty()) {
+    for (const auto& column : columns) {
+      row[column.name] = column.getValue(index);
+    }
+  } else {
+    for (const auto& idx : columnIdx) {
+      if (idx < 0 || static_cast<size_t>(idx) >= columns.size()) {
+        throw std::out_of_range("column index out of range");
+      }
+      const auto& column = columns[idx];
+      row[column.name] = column.getValue(index);
+    }
   }
   return row;
 }
@@ -72,9 +82,18 @@ void DataTable::getRow(size_t index, Row& row, const std::vector<int>& columnIdx
   if (index >= getNumRows()) {
     throw std::out_of_range("index out of range");
   }
-  for (const auto& idx : columnIdx) {
-    const auto& column = columns[idx];
-    row[column.name] = column.getValue(index);
+  if (columnIdx.empty()) {
+    for (const auto& column : columns) {
+      row[column.name] = column.getValue(index);
+    }
+  } else {
+    for (const auto& idx : columnIdx) {
+      if (idx < 0 || static_cast<size_t>(idx) >= columns.size()) {
+        throw std::out_of_range("column index out of range");
+      }
+      const auto& column = columns[idx];
+      row[column.name] = column.getValue(index);
+    }
   }
 }
 

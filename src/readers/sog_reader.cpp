@@ -149,9 +149,9 @@ std::unique_ptr<DataTable> readSog(const std::string& file, const std::string& s
                                  {"z", std::vector<float>(count, 0.0f)},
 
                                  // Scale (stored as linear in .splat, convert to log for internal use)
-                                 {"scale0", std::vector<float>(count, 0.0f)},
-                                 {"scale1", std::vector<float>(count, 0.0f)},
-                                 {"scale2", std::vector<float>(count, 0.0f)},
+                                 {"scale_0", std::vector<float>(count, 0.0f)},
+                                 {"scale_1", std::vector<float>(count, 0.0f)},
+                                 {"scale_2", std::vector<float>(count, 0.0f)},
 
                                  // Color/opacity
                                  {"f_dc_0", std::vector<float>(count, 0.0f)},  // Red

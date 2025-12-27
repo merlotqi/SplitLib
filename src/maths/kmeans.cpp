@@ -25,6 +25,7 @@
 
 #include <splat/maths/kdtree.h>
 #include <splat/maths/kmeans.h>
+#include <splat/gpu/gpu-clustering.cuh>
 
 #include <iostream>
 #include <numeric>
@@ -81,7 +82,7 @@ static void calcAverage(const DataTable* dataTable, const std::vector<int>& clus
     dataTable->getRow(cluster[i], dataRow);
 
     for (size_t j = 0; j < keys.size(); ++j) {
-      const auto key = keys[i];
+      const auto &key = keys[j];
       row[key] += dataRow[key];
     }
   }
@@ -150,7 +151,7 @@ std::pair<std::unique_ptr<DataTable>, std::vector<uint32_t>> kmeans(DataTable* p
   std::mt19937 gen(rd());
   std::uniform_int_distribution<size_t> dis(0, points->getNumRows() - 1);
   while (!converged) {
-    clusterKdTreeCpu(points, centroids.get(), labels);
+    gpu_cluster_3d_execute(points->getColumn(0).asVector<float>(), centroids->getColumn(0).asVector<float>(), labels);
 
     // calculate the new centroid positions
     auto groups = groupLabels(labels, k);

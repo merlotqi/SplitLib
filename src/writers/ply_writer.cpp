@@ -63,7 +63,7 @@ void writePly(const std::string& filename, const PlyData& plyData) {
     header.emplace_back("comment " + c);
   }
   for (auto&& element : plyData.elements) {
-    header.emplace_back("element " + element.name + std::to_string(element.dataTable->getNumRows()));
+    header.emplace_back("element " + element.name + " " + std::to_string(element.dataTable->getNumRows()));
     for (auto&& column : element.dataTable->columns) {
       header.emplace_back("property " + columnTypeToPlyType(column.getType()) + " " + column.name);
     }

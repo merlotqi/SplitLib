@@ -1,12 +1,17 @@
 cmake_minimum_required(VERSION 3.10)
 project(splat-transform 
     VERSION 0.1.0 
-    LANGUAGES CXX
+    LANGUAGES CXX CUDA
     DESCRIPTION "Splat Transform")
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
+
+set(CMAKE_CUDA_STANDARD 17)
+set(CMAKE_CUDA_STANDARD_REQUIRED ON)
+set(CMAKE_CUDA_EXTENSIONS OFF)
+set(CUDA_ARCHITECTURES "75;80;89" CACHE STRING "CUDA architectures")
 
 if(UNIX)
 find_package(PkgConfig REQUIRED)
@@ -34,11 +39,13 @@ set(ALL_DEPS_INCS
 
 elseif(WIN32)
 
+find_package(CUDAToolkit REQUIRED)
 find_package(WebP REQUIRED)
 find_package(Eigen3 CONFIG REQUIRED)
 find_package(nlohmann_json REQUIRED)
 find_package(absl REQUIRED)
 find_package(ZLIB REQUIRED)
+find_package(TBB CONFIG REQUIRED)
 set(ALL_DEPS_LIBS 
         Eigen3::Eigen 
         nlohmann_json::nlohmann_json 
@@ -46,6 +53,8 @@ set(ALL_DEPS_LIBS
         ZLIB::ZLIB 
         absl::base 
         absl::strings
+        TBB::tbb
+        CUDA::cudart
     )
     set(ALL_DEPS_INCS "")
 
@@ -54,6 +63,9 @@ endif()
 include(GenerateExportHeader)
 
 add_library(splat STATIC)
+set_target_properties(splat PROPERTIES
+    CUDA_ARCHITECTURES ${CUDA_ARCHITECTURES}
+)
 add_library(SPLAT::splat ALIAS splat)
 add_subdirectory(include)
 add_subdirectory(src)
@@ -70,7 +82,7 @@ target_include_directories(splat
 )
 
 if(WIN32)
-    target_compile_definitions(splat PUBLIC _USE_MATH_DEFINES)
+    target_compile_definitions(splat PUBLIC _USE_MATH_DEFINES NOMINMAX)
 endif()
 
 add_subdirectory(app)

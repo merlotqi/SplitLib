@@ -36,7 +36,6 @@ struct AdapterInfo {
 };
 
 #ifdef _WIN32
-
 #include <Windows.h>
 #include <dxgi.h>
 #pragma comment(lib, "dxgi.lib")

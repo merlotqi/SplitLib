@@ -262,7 +262,6 @@ void writeLod(const std::string& filename, const DataTable* dataTable, DataTable
   if (envDataTable && envDataTable->getNumRows() > 0) {
     meta["environment"] = "env/meta.json";
   }
-  meta["environment"] = (envDataTable && envDataTable->getNumRows() > 0) ? "env/meta.json" : nullptr;
   meta["filenames"] = filenames;
   meta["tree"] = metaToJson(rootMeta);
 

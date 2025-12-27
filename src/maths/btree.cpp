@@ -172,8 +172,12 @@ float AABB::largestDim() const {
  * @return A reference to the updated Aabb object.
  */
 AABB& AABB::fromCentroids(const DataTable* centroids, const std::vector<uint32_t>& indices) {
-  for (size_t i = 0; i < centroids->getNumColumns(); i++) {
-    const auto data = centroids->getColumn(i);
+  const size_t numColumns = centroids->getNumColumns();
+  min.resize(numColumns);
+  max.resize(numColumns);
+
+  for (size_t i = 0; i < numColumns; i++) {
+    auto&& data = centroids->getColumn(i);
     float m = std::numeric_limits<float>::infinity();
     float n = -std::numeric_limits<float>::infinity();
 

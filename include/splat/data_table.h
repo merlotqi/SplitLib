@@ -37,7 +37,7 @@
 #include <type_traits>
 #include <variant>
 #include <vector>
-
+#include <limits>
 
 namespace splat {
 
