@@ -1,5 +1,10 @@
+Date: 2026-01-05
+Commit: 20a4e51
+Author: Merlot.Qi <merlotrain.mc@gmail.com>
+Message: Add Python bindings using pybind11, refactor CMake configuration, and improve K-means clustering implementation
+
 Date: 2026-01-04
-Commit: d9b4554
+Commit: 10a4953
 Author: Merlot.Qi <merlotrain.mc@gmail.com>
 Message: Bump version to 1.0.0, remove unused options, and refactor write functions for improved clarity and performance
 

@@ -283,12 +283,17 @@ void writeSog(const std::string& outputFilename, DataTable* dataTable, bool bund
       // scale by sqrt(2) to fit in [-1, 1] range
       std::for_each(q.begin(), q.end(), [](float& v) { v *= M_SQRT2; });
 
-      static const int QUAT_IDX_MAP[4][3] = {{0, 1, 2}, {1, 2, 0}, {2, 0, 1}, {0, 1, 2}};
+      static const int QUAT_IDX_MAP[4][3] = {
+          {1, 2, 3},  // maxComp = 0 (x)
+          {0, 2, 3},  // maxComp = 1 (y)
+          {0, 1, 3},  // maxComp = 2 (z)
+          {0, 1, 2}   // maxComp = 3 (w)
+      };
 
       const int* idx = QUAT_IDX_MAP[maxComp];
-      quats[i * 4 + 0] = static_cast<uint8_t>((q[idx[0]] * 0.5f + 0.5f) * 255.0f + 0.5f);
-      quats[i * 4 + 1] = static_cast<uint8_t>((q[idx[1]] * 0.5f + 0.5f) * 255.0f + 0.5f);
-      quats[i * 4 + 2] = static_cast<uint8_t>((q[idx[2]] * 0.5f + 0.5f) * 255.0f + 0.5f);
+      quats[i * 4 + 0] = static_cast<uint8_t>(255.0 * (static_cast<double>(q[idx[0]]) * 0.5 + 0.5));
+      quats[i * 4 + 1] = static_cast<uint8_t>(255.0 * (static_cast<double>(q[idx[1]]) * 0.5 + 0.5));
+      quats[i * 4 + 2] = static_cast<uint8_t>(255.0 * (static_cast<double>(q[idx[2]]) * 0.5 + 0.5));
       quats[i * 4 + 3] = static_cast<uint8_t>(252 + maxComp);
     }
 
@@ -417,7 +422,7 @@ void writeSog(const std::string& outputFilename, DataTable* dataTable, bool bund
 
   Meta meta;
   meta.version = 2;
-  meta.asset.generator =  "libsplat v1.0.0";
+  meta.asset.generator = "libsplat v1.0.0";
   meta.count = numRows;
   meta.means.mins = meansMinMax.first;
   meta.means.maxs = meansMinMax.second;

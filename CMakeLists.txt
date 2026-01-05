@@ -14,6 +14,8 @@ set(CMAKE_CUDA_STANDARD 17)
 set(CMAKE_CUDA_STANDARD_REQUIRED ON)
 set(CMAKE_CUDA_EXTENSIONS OFF)
 
+option(BUILD_PYTHON_BINDINGS "Build Python bindings" OFF)
+
 find_package(OpenMP REQUIRED COMPONENTS CXX)
 
 if(UNIX)
@@ -63,28 +65,10 @@ set(ALL_DEPS_LIBS
 
 endif()
 
-include(GenerateExportHeader)
-
-add_library(splat STATIC "")
-
-add_library(SPLAT::splat ALIAS splat)
-
-add_subdirectory(include)
 add_subdirectory(src)
-
-target_link_libraries(splat 
-    PUBLIC 
-        ${ALL_DEPS_LIBS}
-)
-
-target_include_directories(splat 
-    PUBLIC 
-        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-        ${ALL_DEPS_INCS}
-)
-
-if(WIN32)
-    target_compile_definitions(splat PUBLIC _USE_MATH_DEFINES NOMINMAX)
-endif()
-
 add_subdirectory(app)
+
+if(BUILD_PYTHON_BINDINGS)
+    add_subdirectory(thirdparty/pybind11)
+    add_subdirectory(python)
+endif()
