@@ -115,7 +115,7 @@ static std::tuple<std::unique_ptr<DataTable>, std::unique_ptr<DataTable>> cluste
   std::sort(order.begin(), order.end(), [&](size_t a, size_t b) { return centroidsData[a] < centroidsData[b]; });
 
   // reorder centroids
-  auto tmp = centroidsData;
+  std::vector<float> tmp(centroidsData.begin(), centroidsData.end());
   for (size_t i = 0; i < order.size(); i++) {
     centroidsData[i] = tmp[order[i]];
   }
@@ -315,7 +315,7 @@ void writeSog(const std::string& outputFilename, DataTable* dataTable, bool bund
     for (size_t i = 0; i < numRows; i++) {
       opacityData[i] = std::max(0.0f, std::min(255.0f, sigmoid(opacity[i]) * 255.0f));
     }
-    labels->addColumn({"opacity", std::move(opacityData)});
+    labels->addColumn({"opacity", opacityData});
 
     writeTableData("sh0.webp", labels.release(), width, height);
     return centroids->getColumn(0).asVector<float>();

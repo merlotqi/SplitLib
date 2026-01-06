@@ -23,9 +23,9 @@
  * For more information, visit the project's homepage or contact the author.
  */
 
+#include <splat/maths/maths.h>
 #include <splat/spatial/kdtree.h>
 #include <splat/spatial/kmeans.h>
-#include <splat/maths/maths.h>
 
 #include <iostream>
 #include <numeric>
@@ -34,7 +34,7 @@
 
 namespace splat {
 
-#define CHUNK_SIZE (128)
+static constexpr auto chunkSize = 128u;
 
 __global__ void clusterKernel(const float* __restrict__ points, const float* __restrict__ centroids,
                               uint32_t* __restrict__ results, uint32_t numPoints, uint32_t numCentroids,
@@ -50,34 +50,33 @@ __global__ void clusterKernel(const float* __restrict__ points, const float* __r
     }
   }
 
-  float minDist = 1e30f;
-  uint32_t minIdx = 0;
+  float mind = 1000000.0f;
+  uint32_t mini = 0;
 
-  uint32_t numChunks = (numCentroids + CHUNK_SIZE - 1) / CHUNK_SIZE;
+  uint32_t numChunks = (numCentroids + chunkSize - 1) / chunkSize;
 
   for (uint32_t i = 0; i < numChunks; i++) {
-    uint32_t currentChunkStart = i * CHUNK_SIZE;
-    uint32_t currentChunkSize = min(CHUNK_SIZE, numCentroids - currentChunkStart);
+    uint32_t currentChunkSize = min(chunkSize, numCentroids - i * chunkSize);
 
     for (uint32_t j = threadIdx.x; j < currentChunkSize * numColumns; j += blockDim.x) {
-      sharedChunk[j] = centroids[currentChunkStart * numColumns + j];
+      sharedChunk[j] = centroids[i * chunkSize * numColumns + j];
     }
 
     __syncthreads();
 
     if (pointIndex < numPoints) {
       for (uint32_t c = 0; c < currentChunkSize; c++) {
-        float dist = 0.0f;
+        float d = 0.0f;
         uint32_t centroidBase = c * numColumns;
 
         for (uint32_t col = 0; col < numColumns; col++) {
           float diff = currentPoint[col] - sharedChunk[centroidBase + col];
-          dist += diff * diff;
+          d += (double)diff * (double)diff;
         }
 
-        if (dist < minDist) {
-          minDist = dist;
-          minIdx = currentChunkStart + c;
+        if (d < mind) {
+          mind = d;
+          mini = i * chunkSize + c;
         }
       }
     }
@@ -86,7 +85,7 @@ __global__ void clusterKernel(const float* __restrict__ points, const float* __r
   }
 
   if (pointIndex < numPoints) {
-    results[pointIndex] = minIdx;
+    results[pointIndex] = mini;
   }
 }
 
@@ -124,7 +123,7 @@ void gpu_clustering_execute(const DataTable* points, const DataTable* centroids,
   int threadsPerBlock = 128;
   int blocksPerGrid = (numPoints + threadsPerBlock - 1) / threadsPerBlock;
 
-  size_t sharedMemSize = CHUNK_SIZE * numCols * sizeof(float);
+  size_t sharedMemSize = chunkSize * numCols * sizeof(float);
 
   clusterKernel<<<blocksPerGrid, threadsPerBlock, sharedMemSize>>>(d_points, d_centroids, d_results, numPoints,
                                                                    numCentroids, numCols);
@@ -261,8 +260,7 @@ std::pair<std::unique_ptr<DataTable>, std::vector<uint32_t>> kmeans(DataTable* p
     for (size_t i = 0; i < centroids->getNumRows(); ++i) {
       if (groups[i].size() == 0) {
         // re-seed this centroid to a random point to avoid zero vector
-        std::uniform_int_distribution<> dis(0, points->getNumRows() - 1);
-        const auto idx = floor(simple_random() * points->getNumRows());
+        const auto idx = static_cast<size_t>(std::floor(simple_random() * static_cast<float>(points->getNumRows())));
         points->getRow(idx, row);
         centroids->setRow(i, row);
       } else {

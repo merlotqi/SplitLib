@@ -250,7 +250,7 @@ void writeLod(const std::string& filename, const DataTable* dataTable, DataTable
     if (!mNode.lods.empty()) {
       j["lods"] = json::object();
       for (auto const& [lodKey, lodVal] : mNode.lods) {
-        j["lods"][std::to_string(lodKey)] = {{"file", lodVal.file}, {"offset", lodVal.offset}, {"count", lodVal.count}};
+        j["lods"][std::to_string(static_cast<int>(lodKey))] = {{"file", lodVal.file}, {"offset", lodVal.offset}, {"count", lodVal.count}};
       }
     }
     return j;

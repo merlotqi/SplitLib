@@ -1,5 +1,15 @@
+Date: 2026-01-06
+Commit: 0300d7c
+Author: Merlot.Qi <merlotrain.mc@gmail.com>
+Message: fix(clustering): fix data corruption during centroid reordering
+
+Date: 2026-01-06
+Commit: a4f20bd
+Author: Merlot.Qi <merlotrain.mc@gmail.com>
+Message: Refactor and improve code quality across multiple files
+
 Date: 2026-01-05
-Commit: 20a4e51
+Commit: 92c7fa4
 Author: Merlot.Qi <merlotrain.mc@gmail.com>
 Message: Add Python bindings using pybind11, refactor CMake configuration, and improve K-means clustering implementation
 
