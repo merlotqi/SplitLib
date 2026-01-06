@@ -29,7 +29,7 @@
 
 namespace splat {
 
-namespace ZipConstants {
+namespace zip_constants {
 
 static constexpr uint32_t SIG_LFH = 0x04034b50;
 static constexpr uint32_t SIG_CDR = 0x02014b50;
@@ -38,7 +38,7 @@ static constexpr uint32_t SIG_DESCRIPTOR = 0x08074b50;
 static constexpr uint16_t LFH_FIXED_SIZE = 30;
 static constexpr uint16_t CDR_FIXED_SIZE = 46;
 
-}  // namespace ZipConstants
+}  // namespace zip_constants
 
 /**
  * @brief Writes a 16-bit unsigned integer to the stream in Little-Endian byte order.
@@ -54,38 +54,40 @@ void ZipWriter::writeUint32LE(uint32_t value) { file_.write(reinterpret_cast<con
  * @brief Writes the 16-byte Data Descriptor for the last finished file.
  */
 void ZipWriter::writeDataDescriptor() {
-  if (files_.empty()) return;
+  if (files_.empty()) {
+    return;
+  }
 
-  const FileInfo& fileInfo = files_.back();
+  const FileInfo& file_info = files_.back();
 
   // 1. Signature (0x08074b50)
-  writeUint32LE(ZipConstants::SIG_DESCRIPTOR);
+  writeUint32LE(zip_constants::SIG_DESCRIPTOR);
 
   // 2. CRC-32 value
-  writeUint32LE(fileInfo.crc.value());
+  writeUint32LE(file_info.crc.value());
 
   // 3. Compressed Size (equal to uncompressed size for STORE method)
-  writeUint32LE(fileInfo.sizeBytes);
+  writeUint32LE(file_info.sizeBytes);
 
   // 4. Uncompressed Size
-  writeUint32LE(fileInfo.sizeBytes);
+  writeUint32LE(file_info.sizeBytes);
 }
 
 /**
  * @brief Writes the Local File Header (LFH) for a new file and updates metadata.
  * Captures the offset before writing the header.
- * @param filenameBuf The UTF-8 encoded filename bytes.
+ * @param filename_buf The UTF-8 encoded filename bytes.
  */
 void ZipWriter::writeLocalFileHeader(const std::vector<uint8_t>& filenameBuf) {
-  const uint16_t nameLen = static_cast<uint16_t>(filenameBuf.size());
+  const auto name_len = static_cast<uint16_t>(filenameBuf.size());
 
   // Capture the offset of the LFH before writing it
-  uint32_t currentOffset = static_cast<uint32_t>(file_.tellp());
+  uint32_t current_offset = static_cast<uint32_t>(file_.tellp());
 
   // --- Write LFH Fixed Part (30 bytes) ---
 
   // 1. Signature (0x04034b50)
-  writeUint32LE(ZipConstants::SIG_LFH);
+  writeUint32LE(zip_constants::SIG_LFH);
 
   // 2. Version needed to extract (2.0)
   writeUint16LE(20);
@@ -106,15 +108,15 @@ void ZipWriter::writeLocalFileHeader(const std::vector<uint8_t>& filenameBuf) {
   writeUint32LE(0);
 
   // 7. Filename Length, Extra Field Length (0)
-  writeUint16LE(nameLen);
+  writeUint16LE(name_len);
   writeUint16LE(0);
 
   // 8. Filename
-  file_.write(reinterpret_cast<const char*>(filenameBuf.data()), nameLen);
+  file_.write(reinterpret_cast<const char*>(filenameBuf.data()), name_len);
 
   // Store metadata for the Central Directory Record
   FileInfo info;
-  info.localHeaderOffset = currentOffset;
+  info.localHeaderOffset = current_offset;
   info.filenameBuf = filenameBuf;
   files_.emplace_back(info);
 }
@@ -157,8 +159,8 @@ void ZipWriter::start(const std::string& filename) {
   }
 
   // Convert filename to UTF-8 bytes and write new LFH
-  std::vector<uint8_t> filenameBuf(filename.begin(), filename.end());
-  writeLocalFileHeader(filenameBuf);
+  std::vector<uint8_t> filename_buf(filename.begin(), filename.end());
+  writeLocalFileHeader(filename_buf);
 }
 
 /**
@@ -173,11 +175,11 @@ void ZipWriter::write(const uint8_t* data, size_t length) {
     throw std::runtime_error("Cannot write data: must call start() first.");
   }
 
-  FileInfo& currentFile = files_.back();
+  FileInfo& current_file = files_.back();
 
   // Update metadata
-  currentFile.sizeBytes += static_cast<uint32_t>(length);
-  currentFile.crc.update(data, length);  // Assumes Crc::update overload for raw pointer/length
+  current_file.sizeBytes += static_cast<uint32_t>(length);
+  current_file.crc.update(data, length);  // Assumes Crc::update overload for raw pointer/length
 
   // Write data to stream
   file_.write(reinterpret_cast<const char*>(data), length);
@@ -194,7 +196,9 @@ void ZipWriter::write(const std::vector<uint8_t>& data) { write(data.data(), dat
  * Flushes and closes the underlying file stream.
  */
 void ZipWriter::close() {
-  if (!file_.is_open()) return;
+  if (!file_.is_open()) {
+    return;
+  }
 
   // 1. Write Data Descriptor for the last file
   if (!files_.empty()) {
@@ -202,17 +206,17 @@ void ZipWriter::close() {
   }
 
   // Record the start position of the Central Directory
-  uint32_t centralDirOffset = static_cast<uint32_t>(file_.tellp());
-  uint32_t centralDirSize = 0;
+  uint32_t central_dir_offset = static_cast<uint32_t>(file_.tellp());
+  uint32_t central_dir_size = 0;
 
   // 2. Write Central Directory (CD) records
-  for (const auto& fileInfo : files_) {
-    const uint16_t nameLen = static_cast<uint16_t>(fileInfo.filenameBuf.size());
+  for (const auto& file_info : files_) {
+    const uint16_t name_len = static_cast<uint16_t>(file_info.filenameBuf.size());
 
     // --- Write CD Record Fixed Part (46 bytes) ---
 
     // 1. Signature (0x02014b50)
-    writeUint32LE(ZipConstants::SIG_CDR);
+    writeUint32LE(zip_constants::SIG_CDR);
 
     // 2. Version made by (2.0) / 3. Version needed to extract (2.0)
     writeUint16LE(20);
@@ -229,12 +233,12 @@ void ZipWriter::close() {
     writeUint16LE(dosDate_);
 
     // 7. CRC-32 / 8. Compressed Size / Uncompressed Size
-    writeUint32LE(fileInfo.crc.value());
-    writeUint32LE(fileInfo.sizeBytes);
-    writeUint32LE(fileInfo.sizeBytes);
+    writeUint32LE(file_info.crc.value());
+    writeUint32LE(file_info.sizeBytes);
+    writeUint32LE(file_info.sizeBytes);
 
     // 9. Filename Length / Extra Field Length (0) / File Comment Length (0)
-    writeUint16LE(nameLen);
+    writeUint16LE(name_len);
     writeUint16LE(0);
     writeUint16LE(0);
 
@@ -244,33 +248,33 @@ void ZipWriter::close() {
     writeUint32LE(0);
 
     // 11. Offset of Local File Header
-    writeUint32LE(fileInfo.localHeaderOffset);
+    writeUint32LE(file_info.localHeaderOffset);
 
     // 12. Filename
-    file_.write(reinterpret_cast<const char*>(fileInfo.filenameBuf.data()), nameLen);
+    file_.write(reinterpret_cast<const char*>(file_info.filenameBuf.data()), name_len);
 
-    centralDirSize += ZipConstants::CDR_FIXED_SIZE + nameLen;
+    central_dir_size += zip_constants::CDR_FIXED_SIZE + name_len;
   }
 
   // 3. Write End of Central Directory Record (EOCD)
 
   // 1. Signature (0x06054b50)
-  writeUint32LE(ZipConstants::SIG_EOCD);
+  writeUint32LE(zip_constants::SIG_EOCD);
 
   // 2. Disk number / Disk number start of CD (0)
   writeUint16LE(0);
   writeUint16LE(0);
 
   // 3. Number of entries in this disk / Total number of entries
-  uint16_t fileCount = static_cast<uint16_t>(files_.size());
-  writeUint16LE(fileCount);
-  writeUint16LE(fileCount);
+  auto file_count = static_cast<uint16_t>(files_.size());
+  writeUint16LE(file_count);
+  writeUint16LE(file_count);
 
   // 4. Size of Central Directory
-  writeUint32LE(centralDirSize);
+  writeUint32LE(central_dir_offset);
 
   // 5. Offset of start of Central Directory relative to start of archive
-  writeUint32LE(centralDirOffset);
+  writeUint32LE(central_dir_offset);
 
   // 6. Comment length (0)
   writeUint16LE(0);

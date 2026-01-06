@@ -49,15 +49,15 @@ static Eigen::Vector3f mixVec3(const Eigen::Vector3f& min, const Eigen::Vector3f
 }
 
 static void decodePacked_11_10_11(Eigen::Vector3f& res, uint32_t enc) {
-  res.x() = (enc & 0x7FF) / 2047.0f;
-  res.y() = ((enc >> 11) & 0x3FF) / 1023.0f;
-  res.z() = ((enc >> 21) & 0x7FF) / 2047.0f;
+  res.x() = static_cast<float>(enc & 0x7FF) / 2047.0f;
+  res.y() = static_cast<float>((enc >> 11) & 0x3FF) / 1023.0f;
+  res.z() = static_cast<float>((enc >> 21) & 0x7FF) / 2047.0f;
 }
 
 static Eigen::Quaternionf decodeRotation(uint32_t v) {
-  float d0 = (v & 1023) / 1023.0f;
-  float d1 = ((v >> 10) & 1023) / 1023.0f;
-  float d2 = ((v >> 20) & 1023) / 1023.0f;
+  float d0 = static_cast<float>(v & 1023) / 1023.0f;
+  float d1 = static_cast<float>((v >> 10) & 1023) / 1023.0f;
+  float d2 = static_cast<float>((v >> 20) & 1023) / 1023.0f;
   uint32_t d3 = (v >> 30) & 3;
 
   float qx = d0 * SQRT_2 - SQRT_2_INV;

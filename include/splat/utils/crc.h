@@ -25,23 +25,24 @@
 
 #pragma once
 
+#include <array>
+#include <cstddef>
 #include <cstdint>
 #include <vector>
-#include <cstddef>
 
 namespace splat {
 
 class Crc {
  private:
-  uint32_t bits;
-  static const uint32_t crc32_table[256];
+  uint32_t bits{0xFFFFFFFF};
+  static const std::array<uint32_t, 256> crc32_table;
 
  public:
-  Crc();
+  Crc() = default;
   void reset();
   void update(const uint8_t* data, std::size_t length);
   void update(const std::vector<uint8_t>& data);
-  uint32_t value() const;
+  [[nodiscard]] uint32_t value() const;
 };
 
 }  // namespace splat

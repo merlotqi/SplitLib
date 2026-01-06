@@ -27,6 +27,7 @@
 
 #include <cstdarg>
 #include <cstdio>
+#include <iostream>
 #include <mutex>
 #include <string>
 #include <string_view>
@@ -45,15 +46,19 @@ class Logger {
 
   Logger() = default;
 
-  void log_internal(const char* prefix, const char* file, int line, const char* format, va_list args) {
-    if (level == logLevel::silent) return;
+  void logInternal(const char* prefix, const char* file, int line, const char* format, va_list args) {
+    if (level == logLevel::silent) {
+      return;
+    }
 
     va_list args_copy;
     va_copy(args_copy, args);
     int len = std::vsnprintf(nullptr, 0, format, args_copy);
     va_end(args_copy);
 
-    if (len < 0) return;
+    if (len < 0) {
+      return;
+    }
 
     std::vector<char> buf(len + 1);
     std::vsnprintf(buf.data(), buf.size(), format, args);
@@ -67,8 +72,7 @@ class Logger {
 
     {
       std::lock_guard<std::mutex> lock(log_mutex);
-      std::printf("[%s] %.*s:%d > %s\n", prefix, static_cast<int>(file_sv.size()), file_sv.data(), line,
-                  formatted_msg.c_str());
+      std::cout << "[" << prefix << "] " << file_sv << ":" << line << " > " << formatted_msg << std::endl;
       std::fflush(stdout);
     }
   }
@@ -78,7 +82,7 @@ class Logger {
     static Logger instance;
     return instance;
   }
-
+  ~Logger() = default;
   Logger(const Logger&) = delete;
   Logger& operator=(const Logger&) = delete;
 
@@ -87,30 +91,33 @@ class Logger {
 #if defined(__GNUC__) || defined(__clang__)
   __attribute__((format(printf, 4, 5)))
 #endif
-  void info(const char* file, int line, const char* format, ...) {
+  void
+  info(const char* file, int line, const char* format, ...) {
     va_list args;
     va_start(args, format);
-    log_internal("INFO", file, line, format, args);
+    logInternal("INFO", file, line, format, args);
     va_end(args);
   }
 
 #if defined(__GNUC__) || defined(__clang__)
   __attribute__((format(printf, 4, 5)))
 #endif
-  void warn(const char* file, int line, const char* format, ...) {
+  void
+  warn(const char* file, int line, const char* format, ...) {
     va_list args;
     va_start(args, format);
-    log_internal("WARN", file, line, format, args);
+    logInternal("WARN", file, line, format, args);
     va_end(args);
   }
 
 #if defined(__GNUC__) || defined(__clang__)
   __attribute__((format(printf, 4, 5)))
 #endif
-  void error(const char* file, int line, const char* format, ...) {
+  void
+  error(const char* file, int line, const char* format, ...) {
     va_list args;
     va_start(args, format);
-    log_internal("ERROR", file, line, format, args);
+    logInternal("ERROR", file, line, format, args);
     va_end(args);
   }
 };

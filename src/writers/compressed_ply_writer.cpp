@@ -80,7 +80,7 @@ void writeCompressedPly(const std::string& filename, DataTable* dataTable) {
   auto it = std::find_if(shNames.begin(), shNames.end(),
                          [&](const std::string& name) { return !dataTable->hasColumn(name); });
 
-  int missingIdx = (it == shNames.end()) ? -1 : std::distance(shNames.begin(), it);
+  const int missingIdx = (it == shNames.end()) ? -1 : static_cast<int>(std::distance(shNames.begin(), it));
   int shBands = 0;
   switch (missingIdx) {
     case 9:
@@ -138,8 +138,8 @@ void writeCompressedPly(const std::string& filename, DataTable* dataTable) {
   Row row;
   CompressedChunk chunk;
   for (size_t i = 0; i < numChunks; i++) {
-    const int num = std::min(numSplats, static_cast<size_t>( (i + 1) * CHUNK_SIZE)) - i * CHUNK_SIZE;
-    for (int j = 0; j < num; j++) {
+    const size_t num = std::min(numSplats, static_cast<size_t>((i + 1) * CHUNK_SIZE)) - i * CHUNK_SIZE;
+    for (size_t j = 0; j < num; j++) {
       const uint32_t index = sortIndices[i * CHUNK_SIZE + j];
 
       // read splat data

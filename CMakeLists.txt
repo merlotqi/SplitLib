@@ -15,6 +15,7 @@ set(CMAKE_CUDA_STANDARD_REQUIRED ON)
 set(CMAKE_CUDA_EXTENSIONS OFF)
 
 option(BUILD_PYTHON_BINDINGS "Build Python bindings" OFF)
+option(ENABLE_CLANG_TIDY "Enable clang-tidy analysis during compilation" OFF)
 
 find_package(OpenMP REQUIRED COMPONENTS CXX)
 
@@ -63,6 +64,17 @@ set(ALL_DEPS_LIBS
     )
     set(ALL_DEPS_INCS "")
 
+endif()
+
+if(ENABLE_CLANG_TIDY)
+    find_program(CLANG_TIDY_EXE NAMES clang-tidy)
+    if(NOT CLANG_TIDY_EXE)
+        message(WARNING "clang-tidy not found, disabling ENABLE_CLANG_TIDY")
+        set(ENABLE_CLANG_TIDY OFF)
+    else()
+        message(STATUS "clang-tidy found: ${CLANG_TIDY_EXE}")
+        set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+    endif()
 endif()
 
 add_subdirectory(src)

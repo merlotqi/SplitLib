@@ -32,12 +32,11 @@
 #include <stdexcept>
 #include <vector>
 
-namespace splat {
-namespace webpCodec {
+namespace splat::webpcodec {
 
 struct WebPFreeDeleter {
   void operator()(void* ptr) const {
-    if (ptr) {
+    if (ptr != nullptr) {
       WebPFree(ptr);
     }
   }
@@ -48,19 +47,19 @@ using WebPDataPtr = std::unique_ptr<uint8_t, WebPFreeDeleter>;
 std::tuple<std::vector<uint8_t>, int, int> decodeRGBA(const std::vector<uint8_t>& webp) {
   int width = 0;
   int height = 0;
-  uint8_t* rgbaBuffer = WebPDecodeRGBA(webp.data(), webp.size(), &width, &height);
+  uint8_t* rgba_buffer = WebPDecodeRGBA(webp.data(), webp.size(), &width, &height);
 
-  if (rgbaBuffer == nullptr) {
+  if (rgba_buffer == nullptr) {
     throw std::runtime_error("WebP decode failed. Could not decode data.");
   }
 
-  WebPDataPtr decodedData(rgbaBuffer);
+  WebPDataPtr decoded_data(rgba_buffer);
 
   const size_t size = static_cast<size_t>(width) * height * 4;
 
-  std::vector<uint8_t> resultData(decodedData.get(), decodedData.get() + size);
+  std::vector<uint8_t> result_data(decoded_data.get(), decoded_data.get() + size);
 
-  return {resultData, width, height};
+  return {result_data, width, height};
 }
 
 std::vector<uint8_t> encodeLosslessRGBA(const std::vector<uint8_t>& rgba, int width, int height, int stride) {
@@ -68,21 +67,20 @@ std::vector<uint8_t> encodeLosslessRGBA(const std::vector<uint8_t>& rgba, int wi
     stride = width * 4;
   }
 
-  uint8_t* outputBuffer = nullptr;
-  size_t outputSize = 0;
+  uint8_t* output_buffer = nullptr;
+  size_t output_size = 0;
 
-  outputSize = WebPEncodeLosslessRGBA(rgba.data(), width, height, stride, &outputBuffer);
+  output_size = WebPEncodeLosslessRGBA(rgba.data(), width, height, stride, &output_buffer);
 
-  if (outputSize == 0) {
+  if (output_size == 0) {
     throw std::runtime_error("WebP lossless encode failed. Output size is zero.");
   }
 
-  WebPDataPtr encodedData(outputBuffer);
+  WebPDataPtr encoded_data(output_buffer);
 
-  std::vector<uint8_t> resultData(encodedData.get(), encodedData.get() + outputSize);
+  std::vector<uint8_t> result_data(encoded_data.get(), encoded_data.get() + output_size);
 
-  return resultData;
+  return result_data;
 }
 
-}  // namespace webpCodec
-}  // namespace splat
+}  // namespace splat::webpcodec

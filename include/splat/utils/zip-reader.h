@@ -38,8 +38,8 @@ class ZipEntry {
   std::string name;
   uint32_t size;                                   // Uncompressed size
   std::function<std::vector<uint8_t>()> readData;  // Lazy data read function
-  ZipEntry(std::string n, uint32_t s, std::function<std::vector<uint8_t>()> rd)
-      : name(std::move(n)), size(s), readData(std::move(rd)) {}
+  ZipEntry(std::string n, uint32_t sz, std::function<std::vector<uint8_t>()> rd)
+      : name(std::move(n)), size(sz), readData(std::move(rd)) {}
 };
 
 /**
@@ -48,11 +48,11 @@ class ZipEntry {
  */
 class ZipReader {
  private:
-  std::ifstream file;
+  std::ifstream file_;
   // Use std::streamoff for offsets; it's designed for signed differences/offsets,
   // though std::streampos is acceptable for absolute positions.
-  std::streamoff cursor = 0;
-  std::streamoff fileSize = 0;
+  std::streamoff cursor_ = 0;
+  std::streamoff file_size_ = 0;
 
  public:
   explicit ZipReader(const std::string& filename);

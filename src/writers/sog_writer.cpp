@@ -167,7 +167,7 @@ void writeSog(const std::string& outputFilename, DataTable* dataTable, bool bund
 
   // the layout function determines how the data is packed into the output texture.
   auto writeWebp = [&](const std::string& filename, const std::vector<uint8_t>& data, size_t w, size_t h) {
-    std::vector<uint8_t> webp = webpCodec::encodeLosslessRGBA(data, w, h);
+    std::vector<uint8_t> webp = webpcodec::encodeLosslessRGBA(data, w, h);
     if (zipWriter) {
       zipWriter->writeFile(filename, webp);
     } else {
@@ -206,7 +206,6 @@ void writeSog(const std::string& outputFilename, DataTable* dataTable, bool bund
     }
     Row row;
 
-#pragma omp parallel for
     for (int i = 0; i < indices.size(); i++) {
       auto process = [&](const float& value, int axisIdx) -> uint16_t {
         float val = logTransform(value);
@@ -257,7 +256,6 @@ void writeSog(const std::string& outputFilename, DataTable* dataTable, bool bund
     }
     std::array<float, 4> q = {0.0, 0.0, 0.0, 0.0};
 
-#pragma omp parallel for
     for (int i = 0; i < indices.size(); i++) {
       Row row;
       dataTable->getRow(indices[i], row, quatsColumnIdxs);

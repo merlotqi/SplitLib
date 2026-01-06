@@ -44,7 +44,7 @@ namespace splat {
 
 using Row = std::map<std::string, float>;
 
-enum class ColumnType {
+enum class ColumnType : std::uint8_t {
   INT8,
   UINT8,
   INT16,
@@ -235,11 +235,7 @@ struct Column {
 
   template <typename Q, typename T>
   Q parseString(T value) const {
-    std::string s;
-    if constexpr (std::is_same_v<T, const char*>)
-      s = value;
-    else
-      s = value;
+    std::string s = value;
 
     try {
       if constexpr (std::is_floating_point_v<Q>) return static_cast<Q>(std::stod(s));

@@ -25,6 +25,7 @@
 
 #include <splat/spatial/kdtree.h>
 #include <splat/spatial/kmeans.h>
+#include <splat/maths/maths.h>
 
 #include <iostream>
 #include <numeric>
@@ -252,9 +253,6 @@ std::pair<std::unique_ptr<DataTable>, std::vector<uint32_t>> kmeans(DataTable* p
   std::cout << "Running k-means clustering: dims=" << points->getNumColumns() << " points=" << points->getNumRows()
             << " clusters=" << k << " iterations=" << iterations << "..." << std::endl;
 
-  std::random_device rd;
-  std::mt19937 gen(rd());
-  std::uniform_int_distribution<size_t> dis(0, points->getNumRows() - 1);
   while (!converged) {
     gpu_clustering_execute(points, centroids.get(), labels);
 
@@ -263,7 +261,8 @@ std::pair<std::unique_ptr<DataTable>, std::vector<uint32_t>> kmeans(DataTable* p
     for (size_t i = 0; i < centroids->getNumRows(); ++i) {
       if (groups[i].size() == 0) {
         // re-seed this centroid to a random point to avoid zero vector
-        const auto idx = dis(gen);
+        std::uniform_int_distribution<> dis(0, points->getNumRows() - 1);
+        const auto idx = floor(simple_random() * points->getNumRows());
         points->getRow(idx, row);
         centroids->setRow(i, row);
       } else {
@@ -278,10 +277,10 @@ std::pair<std::unique_ptr<DataTable>, std::vector<uint32_t>> kmeans(DataTable* p
       converged = true;
     }
 
-    std::cout << "#" << std::endl;
+    std::cout << "#";
   }
 
-  std::cout << u8"done 🎉" << std::endl;
+  std::cout << u8"done 🎉" << "\n";
 
   return {std::move(centroids), labels};
 }

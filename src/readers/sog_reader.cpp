@@ -190,8 +190,8 @@ std::unique_ptr<DataTable> readSog(const std::string& file, const std::string& s
   // means: two textures means_l and means_u
   const auto meansLoWebp = load(meta.means.files[0]);
   const auto meansHiWebp = load(meta.means.files[1]);
-  const auto& [lo, width, height] = webpCodec::decodeRGBA(meansHiWebp);
-  const auto& [hi, _hw, _hh] = webpCodec::decodeRGBA(meansLoWebp);
+  const auto& [lo, width, height] = webpcodec::decodeRGBA(meansHiWebp);
+  const auto& [hi, _hw, _hh] = webpcodec::decodeRGBA(meansLoWebp);
   const auto total = width * height;
   if (total < count) {
     throw std::runtime_error("SOG means texture too small for count");
@@ -219,7 +219,7 @@ std::unique_ptr<DataTable> readSog(const std::string& file, const std::string& s
 
   // quats
   const auto quatsWebp = load(meta.quats.files[0]);
-  const auto& [qr, qw, qh] = webpCodec::decodeRGBA(quatsWebp);
+  const auto& [qr, qw, qh] = webpcodec::decodeRGBA(quatsWebp);
   if (qw * qh < count) {
     throw std::runtime_error("SOG quats texture too small for count");
   }
@@ -244,7 +244,7 @@ std::unique_ptr<DataTable> readSog(const std::string& file, const std::string& s
 
   // scales: labels + codebook
   const auto scalesWebp = load(meta.scales.files[0]);
-  const auto& [sl, sw, sh] = webpCodec::decodeRGBA(scalesWebp);
+  const auto& [sl, sw, sh] = webpcodec::decodeRGBA(scalesWebp);
   if (sw * sh < count) {
     throw std::runtime_error("SOG scales texture too small for count");
   }
@@ -260,7 +260,7 @@ std::unique_ptr<DataTable> readSog(const std::string& file, const std::string& s
 
   // colors + opacity: sh0.webp encodes 3 labels + opacity byte
   const auto sh0Webp = load(meta.sh0.files[0]);
-  const auto& [c0, cw, ch] = webpCodec::decodeRGBA(sh0Webp);
+  const auto& [c0, cw, ch] = webpcodec::decodeRGBA(sh0Webp);
   if (cw * ch < count) {
     throw std::runtime_error("SOG sh0 texture too small for count");
   }
@@ -286,8 +286,8 @@ std::unique_ptr<DataTable> readSog(const std::string& file, const std::string& s
       const auto codebook = meta.shN->codebook;
       const auto centroidsWebp = load(meta.shN->files[0]);
       const auto labelsWebp = load(meta.shN->files[1]);
-      const auto& [centroidsRGBA, cW, cH] = webpCodec::decodeRGBA(centroidsWebp);
-      const auto& [labelsRGBA, _lw, _lh] = webpCodec::decodeRGBA(labelsWebp);
+      const auto& [centroidsRGBA, cW, cH] = webpcodec::decodeRGBA(centroidsWebp);
+      const auto& [labelsRGBA, _lw, _lh] = webpcodec::decodeRGBA(labelsWebp);
 
       // Prepare f_rest_i columns
       static constexpr auto baseIdx = 14;

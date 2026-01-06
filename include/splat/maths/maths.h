@@ -34,4 +34,10 @@ inline T sigmoid(T x) {
   return 1.0 / (1.0 + exp(-x));
 }
 
+inline float simple_random() {
+    static unsigned int seed = 42;
+    seed = (1103515245ULL * seed + 12345) & 0x7FFFFFFF;
+    return (float)seed / (float)0x7FFFFFFF;
+}
+
 }  // namespace splat

@@ -24,17 +24,17 @@
  */
 
 #include <splat/utils/crc.h>
+
 #include <cstddef>
 
 namespace splat {
-
-Crc::Crc() : bits(0xFFFFFFFF) {}
 
 void Crc::reset() { bits = 0xFFFFFFFF; }
 
 void Crc::update(const uint8_t* data, std::size_t length) {
   for (std::size_t i = 0; i < length; i++) {
-    bits = (bits >> 8) ^ crc32_table[(bits ^ data[i]) & 0xFF];
+    auto&& index = static_cast<uint8_t>((bits ^ data[i]) & 0xFF);
+    bits = (bits >> 8) ^ crc32_table.at(index);
   }
 }
 
@@ -44,7 +44,7 @@ uint32_t Crc::value() const { return bits ^ 0xFFFFFFFF; }
 
 // clang-format off
 
-const uint32_t Crc::crc32_table[256] = {
+const std::array<uint32_t, 256> Crc::crc32_table = {
     0x00000000, 0x77073096, 0xEE0E612C, 0x990951BA,
     0x076DC419, 0x706AF48F, 0xE963A535, 0x9E6495A3,
     0x0EDB8832, 0x79DCB8A4, 0xE0D5E91E, 0x97D2D988,
