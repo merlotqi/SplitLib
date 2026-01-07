@@ -29,6 +29,7 @@
 #include <splat/spatial/btree.h>
 #include <splat/writers/lod_writer.h>
 #include <splat/writers/sog_writer.h>
+#include <splat/utils/threadpool.h>
 
 #include <filesystem>
 #include <fstream>
@@ -159,7 +160,7 @@ void writeLod(const std::string& filename, const DataTable* dataTable, DataTable
   if (envDataTable && envDataTable->getNumRows() > 0) {
     fs::path pathname = outputDir / "env" / "meta.json";
     fs::create_directories(pathname.parent_path());
-    std::cout << "writing " << pathname.string() << "..." << std::endl;
+    std::cout << "writing " << pathname.string() << "..." << "\n";
     writeSog(pathname.string(), envDataTable, bundle, iterations);
   }
 
@@ -252,7 +253,8 @@ void writeLod(const std::string& filename, const DataTable* dataTable, DataTable
     if (!mNode.lods.empty()) {
       j["lods"] = json::object();
       for (auto const& [lodKey, lodVal] : mNode.lods) {
-        j["lods"][std::to_string(static_cast<int>(lodKey))] = {{"file", lodVal.file}, {"offset", lodVal.offset}, {"count", lodVal.count}};
+        j["lods"][std::to_string(static_cast<int>(lodKey))] = {
+            {"file", lodVal.file}, {"offset", lodVal.offset}, {"count", lodVal.count}};
       }
     }
     return j;
@@ -273,6 +275,8 @@ void writeLod(const std::string& filename, const DataTable* dataTable, DataTable
   ofs.flush();
   ofs.close();
 
+  ThreadPool pool(std::thread::hardware_concurrency() * 0.8);
+
   // write file units
   for (auto&& [lodValue, fileUnits] : lodFiles) {
     for (size_t i = 0; i < fileUnits.size(); i++) {
@@ -283,23 +287,31 @@ void writeLod(const std::string& filename, const DataTable* dataTable, DataTable
           outputDir / (std::to_string(static_cast<int>(lodValue)) + "_" + std::to_string(i)) / "meta.json";
       fs::create_directories(pathname.parent_path());
 
-      size_t totalIndices =
-          std::accumulate(fileUnit.begin(), fileUnit.end(), size_t(0),
-                          [](size_t acc, const std::vector<uint32_t>& curr) { return acc + curr.size(); });
-
-      std::vector<uint32_t> indices(totalIndices, 0);
-      size_t offset = 0;
-      for (size_t j = 0; j < fileUnit.size(); j++) {
-        std::copy(fileUnit[j].begin(), fileUnit[j].end(), indices.begin() + offset);
-        sortMortonOrder(dataTable, absl::Span<uint32_t>(&indices[offset], fileUnit[j].size()));
-        offset += fileUnit[j].size();
+      while (pool.getQueueSize() > pool.getWorkerCount() * 2) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(5));
       }
 
-      // construct a new table from the ordered data
-      auto&& unitDataTable = dataTable->permuteRows(indices);
-      std::iota(indices.begin(), indices.end(), 0);
+      pool.enqueue(
+          [this_path = pathname.string(), this_unit = std::move(fileUnit), dataTable, bundle, iterations]() mutable {
+            size_t totalIndices =
+                std::accumulate(this_unit.begin(), this_unit.end(), size_t(0),
+                                [](size_t acc, const std::vector<uint32_t>& curr) { return acc + curr.size(); });
 
-      writeSog(pathname.string(), unitDataTable.release(), bundle, iterations, indices);
+            std::vector<uint32_t> indices(totalIndices, 0);
+            size_t offset = 0;
+            for (const auto& unitVec : this_unit) {
+              std::copy(unitVec.begin(), unitVec.end(), indices.begin() + offset);
+              sortMortonOrder(dataTable, absl::Span<uint32_t>(&indices[offset], unitVec.size()));
+              offset += unitVec.size();
+            }
+
+            auto unitDataTable = dataTable->permuteRows(indices);
+
+            std::vector<uint32_t> writeIndices(totalIndices);
+            std::iota(writeIndices.begin(), writeIndices.end(), 0);
+
+            writeSog(this_path, unitDataTable.get(), bundle, iterations, writeIndices);
+          });
     }
   }
 }

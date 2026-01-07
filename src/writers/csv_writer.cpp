@@ -40,7 +40,7 @@ void writeCSV(const std::string& path, DataTable* dataTable) {
   // write header
   std::ofstream file;
   file.open(path);
-  file << absl::StrJoin(dataTable->getColumnNames(), ",") << std::endl;
+  file << absl::StrJoin(dataTable->getColumnNames(), ",") << "\n";
 
   for (size_t i = 0; i < len; ++i) {
     std::string row;
@@ -50,7 +50,7 @@ void writeCSV(const std::string& path, DataTable* dataTable) {
       }
       row += dataTable->getColumn(c).getValue<std::string>(i);
     }
-    file << row << std::endl;
+    file << row << "\n";
   }
 }
 

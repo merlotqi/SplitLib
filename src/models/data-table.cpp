@@ -495,7 +495,7 @@ void transform(DataTable* dataTable, const Eigen::Vector3f& t, const Eigen::Quat
 
   if (shBands > 0) {
     std::cout << "Applying SH rotation with " << shBands << " band(s) (" << shCoeffsPerChannel
-              << " coeffs per channel)." << std::endl;
+              << " coeffs per channel)." << "\n";
   }
 
   // Temporary buffer for SH coefficients of one color channel

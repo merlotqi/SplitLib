@@ -74,7 +74,7 @@ class Logger {
 
     {
       std::lock_guard<std::mutex> lock(log_mutex);
-      std::cout << "[" << prefix << "] " << file_sv << ":" << line << " > " << formatted_msg << std::endl;
+      std::cout << "[" << prefix << "] " << file_sv << ":" << line << " > " << formatted_msg << "\n";
       std::fflush(stdout);
     }
   }

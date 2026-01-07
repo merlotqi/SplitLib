@@ -46,7 +46,7 @@ void writeFile(const std::string& filename, DataTable* dataTable, DataTable* env
 
   std::string outputFormat = getOutputFormat(filename);
 
-  std::cout << "writing '" << filename << "'..." << std::endl;
+  std::cout << "writing '" << filename << "'..." << "\n";
 
   try {
     if (outputFormat == "csv") {

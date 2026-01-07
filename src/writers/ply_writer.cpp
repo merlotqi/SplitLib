@@ -79,7 +79,7 @@ void writePly(const std::string& filename, const PlyData& plyData) {
 
   // write the header
   for (const auto& h : header) {
-    ofs << h << std::endl;
+    ofs << h << "\n";
   }
   ofs.flush();
 

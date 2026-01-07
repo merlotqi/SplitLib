@@ -179,7 +179,7 @@ int main(int argc, char** argv) {
   }
 
   if (absl::GetFlag(FLAGS_version)) {
-    std::cout << "SplatTransform Version " << splat::version << std::endl;
+    std::cout << "SplatTransform Version " << splat::version << "\n";
     return 0;
   }
 
