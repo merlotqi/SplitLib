@@ -1,4 +1,5 @@
-/**
+/***********************************************************************************
+ *
  * splat - A C++ library for reading and writing 3D Gaussian Splatting (splat) files.
  *
  * This library provides functionality to convert, manipulate, and process
@@ -21,7 +22,8 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  *
  * For more information, visit the project's homepage or contact the author.
- */
+ *
+ ***********************************************************************************/
 
 #include <splat/models/morton-order.h>
 #include <cmath>
