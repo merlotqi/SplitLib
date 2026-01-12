@@ -27,7 +27,6 @@
 
 #include <absl/strings/ascii.h>
 #include <absl/strings/match.h>
-#include <omp.h>
 #include <splat/maths/maths.h>
 #include <splat/models/morton-order.h>
 #include <splat/models/sog.h>

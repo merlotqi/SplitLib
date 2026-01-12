@@ -41,7 +41,6 @@ jobs:
           libabsl-dev \
           zlib1g-dev \
           libvulkan-dev \
-          libomp-dev\
           doxygen \
           graphviz
 

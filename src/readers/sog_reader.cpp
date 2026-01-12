@@ -42,8 +42,6 @@
 #include <string>
 #include <vector>
 
-#include <omp.h>
-
 namespace splat {
 
 static std::array<std::vector<uint16_t>, 3> decodeMeans(const std::vector<uint8_t>& lo, const std::vector<uint8_t>& hi,
@@ -209,7 +207,6 @@ std::unique_ptr<DataTable> readSog(const std::string& file, const std::string& s
   const auto zMin = mins[2];
   const auto zScale = (maxs[2] - mins[2]) || 1;
 
-#pragma omp parallel for
   for (int i = 0; i < count; ++i) {
     const auto lx = xMin + xScale * (xs[i] / 65535.0f);
     const auto ly = yMin + yScale * (ys[i] / 65535.0f);
@@ -226,7 +223,6 @@ std::unique_ptr<DataTable> readSog(const std::string& file, const std::string& s
     throw std::runtime_error("SOG quats texture too small for count");
   }
 
-#pragma omp parallel for
   for (int i = 0; i < count; ++i) {
     const auto o = i * 4;
     const auto tag = qr[o + 3];
@@ -252,7 +248,6 @@ std::unique_ptr<DataTable> readSog(const std::string& file, const std::string& s
   }
   const auto sCode = meta.scales.codebook;
 
-#pragma omp parallel for
   for (int i = 0; i < count; ++i) {
     const auto o = i * 4;
     scale0Col.setValue<float>(i, sCode[sl[o]]);
@@ -268,7 +263,6 @@ std::unique_ptr<DataTable> readSog(const std::string& file, const std::string& s
   }
   const auto cCode = meta.sh0.codebook;
 
-#pragma omp parallel for
   for (int i = 0; i < count; i++) {
     const auto o = i * 4;
     dc0.setValue<float>(i, cCode[c0[o + 0]]);
@@ -288,8 +282,17 @@ std::unique_ptr<DataTable> readSog(const std::string& file, const std::string& s
       const auto codebook = meta.shN->codebook;
       const auto centroidsWebp = load(meta.shN->files[0]);
       const auto labelsWebp = load(meta.shN->files[1]);
-      const auto& [centroidsRGBA, cW, cH] = webpcodec::decodeRGBA(centroidsWebp);
-      const auto& [labelsRGBA, _lw, _lh] = webpcodec::decodeRGBA(labelsWebp);
+
+      const auto& centroidsDecoded = webpcodec::decodeRGBA(centroidsWebp);
+      const auto& labelsDecoded = webpcodec::decodeRGBA(labelsWebp);
+
+      const auto& centroidsRGBA = std::get<0>(centroidsDecoded);
+      const auto& cW = std::get<1>(centroidsDecoded);
+      const auto& cH = std::get<2>(centroidsDecoded);
+
+      const auto& labelsRGBA = std::get<0>(labelsDecoded);
+      const auto& _lw = std::get<1>(labelsDecoded);
+      const auto& _lh = std::get<2>(labelsDecoded);
 
       // Prepare f_rest_i columns
       static constexpr auto baseIdx = 14;

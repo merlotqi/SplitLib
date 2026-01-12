@@ -147,10 +147,6 @@ static std::map<float, std::vector<uint32_t>> binIndices(BTree::BTreeNode* paren
 
 void writeLod(const std::string& filename, const DataTable* dataTable, DataTable* envDataTable, bool bundle,
               int iterations, size_t lodChunkCount, size_t lodChunkExtent) {
-  // test
-  lodChunkCount = 64;
-  lodChunkExtent = 16;
-
   fs::path outputDir = fs::path(filename).parent_path();
 
   // ensure top-level output folder exists

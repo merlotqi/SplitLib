@@ -18,7 +18,6 @@ option(BUILD_PYTHON_BINDINGS "Build Python bindings" OFF)
 option(ENABLE_CLANG_TIDY "Enable clang-tidy analysis during compilation" OFF)
 option(BUILD_SPLAT_TRANSFORM_TOOL "Build splat file format transform tool" OFF)
 
-find_package(OpenMP REQUIRED COMPONENTS CXX)
 find_package(Doxygen)
 
 if(UNIX)
@@ -36,7 +35,6 @@ set(ALL_DEPS_LIBS
         ${WEBP_LIBRARIES} 
         ${ZLIB_LIBRARIES} 
         ${ABSL_LIBRARIES}
-        OpenMP::OpenMP_CXX
     )
 set(ALL_DEPS_INCS 
         ${EIGEN3_INCLUDE_DIRS} 
@@ -61,7 +59,6 @@ set(ALL_DEPS_LIBS
         ZLIB::ZLIB 
         absl::base 
         absl::strings
-        OpenMP::OpenMP_CXX
         CUDA::cudart
     )
     set(ALL_DEPS_INCS "")
