@@ -48,7 +48,7 @@ namespace splat {
  */
 template <typename T>
 inline T sigmoid(T x) {
-  return 1.0 / (1.0 + std::exp(-static_cast<double>(x)));
+  return 1.0 / (1.0 + std::exp(-x));
 }
 
 /**
