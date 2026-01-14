@@ -5,7 +5,7 @@ var searchData=
   ['readksplat_155',['readKsplat',['../namespacesplat.html#a8111464ced8f5fc3d201a2a0c8f4ca5b',1,'splat']]],
   ['readlcc_156',['readLcc',['../namespacesplat.html#a863fe57c851c3c281943fb1f3973de82',1,'splat']]],
   ['readme_2emd_157',['README.md',['../README_8md.html',1,'']]],
-  ['readply_158',['readPly',['../namespacesplat.html#a194a6c8507534885a8b08ad8d81d9938',1,'splat']]],
+  ['readply_158',['readPly',['../namespacesplat.html#a9c5aab9390912cf5d71af220b340f09b',1,'splat']]],
   ['readsog_159',['readSog',['../namespacesplat.html#a36751c18195c40aa9ce84448e9c60c29',1,'splat']]],
   ['readsplat_160',['readSplat',['../namespacesplat.html#a7c7242ade76de864daa0eb64b9d36848',1,'splat']]],
   ['readspz_161',['readSpz',['../namespacesplat.html#a5ce2054951931469676ca03b8dea87b3',1,'splat']]],

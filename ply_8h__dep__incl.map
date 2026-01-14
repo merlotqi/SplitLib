@@ -1,7 +1,6 @@
 <map id="/home/runner/work/SplatLib/SplatLib/include/splat/models/ply.h" name="/home/runner/work/SplatLib/SplatLib/include/splat/models/ply.h">
-<area shape="rect" id="node1" title=" " alt="" coords="213,5,415,61"/>
+<area shape="rect" id="node1" title=" " alt="" coords="144,5,345,61"/>
 <area shape="rect" id="node2" href="$decompress__ply_8h.html" title=" " alt="" coords="5,109,207,165"/>
-<area shape="rect" id="node3" href="$splat_8h.html" title=" " alt="" coords="213,213,415,269"/>
-<area shape="rect" id="node4" href="$ply__reader_8h.html" title=" " alt="" coords="283,109,484,165"/>
-<area shape="rect" id="node5" href="$ply__writer_8h.html" title=" " alt="" coords="508,109,709,165"/>
+<area shape="rect" id="node3" href="$splat_8h.html" title=" " alt="" coords="144,213,345,269"/>
+<area shape="rect" id="node4" href="$ply__writer_8h.html" title=" " alt="" coords="283,109,484,165"/>
 </map>

@@ -190,8 +190,9 @@ Functions</h2></td></tr>
 <tr class="separator:a863fe57c851c3c281943fb1f3973de82"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a77c9b8882c8228988d09532ac3a7e078"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacesplat.html#a77c9b8882c8228988d09532ac3a7e078">writeLod</a> (const std::string &amp;filename, const <a class="el" href="classsplat_1_1DataTable.html">DataTable</a> *dataTable, <a class="el" href="classsplat_1_1DataTable.html">DataTable</a> *envDataTable, bool bundle, int iterations, size_t lodChunkCount, size_t lodChunkExtent)</td></tr>
 <tr class="separator:a77c9b8882c8228988d09532ac3a7e078"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a194a6c8507534885a8b08ad8d81d9938"><td class="memItemLeft" align="right" valign="top">std::unique_ptr&lt; <a class="el" href="structsplat_1_1PlyData.html">PlyData</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacesplat.html#a194a6c8507534885a8b08ad8d81d9938">readPly</a> (const std::string &amp;filename)</td></tr>
-<tr class="separator:a194a6c8507534885a8b08ad8d81d9938"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a9c5aab9390912cf5d71af220b340f09b"><td class="memItemLeft" align="right" valign="top">std::unique_ptr&lt; <a class="el" href="classsplat_1_1DataTable.html">DataTable</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacesplat.html#a9c5aab9390912cf5d71af220b340f09b">readPly</a> (const std::string &amp;filename)</td></tr>
+<tr class="memdesc:a9c5aab9390912cf5d71af220b340f09b"><td class="mdescLeft">&#160;</td><td class="mdescRight">Reads and parses a PLY (Polygon File Format) file from disk.  <a href="namespacesplat.html#a9c5aab9390912cf5d71af220b340f09b">More...</a><br /></td></tr>
+<tr class="separator:a9c5aab9390912cf5d71af220b340f09b"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ac139203466e1fd7c045852504ef676a6"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacesplat.html#ac139203466e1fd7c045852504ef676a6">writePly</a> (const std::string &amp;filename, const <a class="el" href="structsplat_1_1PlyData.html">PlyData</a> &amp;plyData)</td></tr>
 <tr class="separator:ac139203466e1fd7c045852504ef676a6"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a36751c18195c40aa9ce84448e9c60c29"><td class="memItemLeft" align="right" valign="top">std::unique_ptr&lt; <a class="el" href="classsplat_1_1DataTable.html">DataTable</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacesplat.html#a36751c18195c40aa9ce84448e9c60c29">readSog</a> (const std::string &amp;file, const std::string &amp;sourceName)</td></tr>
@@ -476,14 +477,14 @@ Functions</h2></td></tr>
 
 </div>
 </div>
-<a id="a194a6c8507534885a8b08ad8d81d9938"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a194a6c8507534885a8b08ad8d81d9938">&#9670;&nbsp;</a></span>readPly()</h2>
+<a id="a9c5aab9390912cf5d71af220b340f09b"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a9c5aab9390912cf5d71af220b340f09b">&#9670;&nbsp;</a></span>readPly()</h2>
 
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">std::unique_ptr&lt;<a class="el" href="structsplat_1_1PlyData.html">PlyData</a>&gt; splat::readPly </td>
+          <td class="memname">std::unique_ptr&lt;<a class="el" href="classsplat_1_1DataTable.html">DataTable</a>&gt; splat::readPly </td>
           <td>(</td>
           <td class="paramtype">const std::string &amp;&#160;</td>
           <td class="paramname"><em>filename</em></td><td>)</td>
@@ -491,6 +492,42 @@ Functions</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
+
+<p>Reads and parses a PLY (Polygon File Format) file from disk. </p>
+<p>This function loads a PLY file, parses its header and data sections, and returns a <a class="el" href="classsplat_1_1DataTable.html" title="Tabular data structure with typed columns.">DataTable</a> containing the vertex data. The function supports both ASCII and binary PLY formats and handles data in chunks for memory efficiency.</p>
+<dl class="params"><dt>Parameters</dt><dd>
+  <table class="params">
+    <tr><td class="paramdir">[in]</td><td class="paramname">filename</td><td>Path to the PLY file to be read.</td></tr>
+  </table>
+  </dd>
+</dl>
+<dl class="section return"><dt>Returns</dt><dd>std::unique_ptr&lt;DataTable&gt; A smart pointer to a <a class="el" href="classsplat_1_1DataTable.html" title="Tabular data structure with typed columns.">DataTable</a> containing the vertex data from the PLY file. If the file contains compressed data, it will be decompressed automatically.</dd></dl>
+<dl class="exception"><dt>Exceptions</dt><dd>
+  <table class="exception">
+    <tr><td class="paramname">std::runtime_error</td><td>If:<ul>
+<li>The file cannot be opened</li>
+<li>The file header is invalid or missing the PLY magic bytes</li>
+<li>The header exceeds the maximum size (128KB)</li>
+<li>The 'end_header' marker is not found</li>
+<li>Data chunks cannot be read properly</li>
+<li>The file does not contain a vertex element</li>
+</ul>
+</td></tr>
+  </table>
+  </dd>
+</dl>
+<dl class="section note"><dt>Note</dt><dd>The function reads data in chunks of 1024 rows at a time to optimize memory usage. Non-vertex elements are stored in the <a class="el" href="structsplat_1_1PlyData.html" title="Complete in-memory representation of PLY file data.">PlyData</a> structure but only vertex data is returned. If the PLY data is compressed, it will be decompressed before returning.</dd></dl>
+<dl class="section user"><dt>File Format Support:</dt><dd><ul>
+<li>Binary PLY format (little-endian)</li>
+<li>Structured elements with properties</li>
+<li>Optional compression (automatically detected and decompressed)</li>
+</ul>
+</dd></dl>
+<dl class="section see"><dt>See also</dt><dd>parseHeader() For header parsing details </dd>
+<dd>
+<a class="el" href="namespacesplat.html#a07152f181a31a582c288178ffc5f9546">isCompressedPly()</a> For compression detection </dd>
+<dd>
+<a class="el" href="namespacesplat.html#aa252f193c70195f18e271769fa16e2ad">decompressPly()</a> For decompression logic </dd></dl>
 
 </div>
 </div>
