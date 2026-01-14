@@ -26,12 +26,16 @@
  ***********************************************************************************/
 
 #include <splat/io/ply_reader.h>
+#include <splat/models/ply.h>
 
 #include <algorithm>
 #include <cstring>
 #include <fstream>
 #include <numeric>
 #include <sstream>
+#include <stdexcept>
+#include "splat/io/decompress_ply.h"
+#include "splat/models/data-table.h"
 
 namespace splat {
 
@@ -145,7 +149,7 @@ static PlyHeader parseHeader(const std::vector<uint8_t>& data) {
   return header;
 }
 
-std::unique_ptr<PlyData> readPly(const std::string& filename) {
+std::unique_ptr<DataTable> readPly(const std::string& filename) {
   // open the file for binary input
   std::ifstream file(filename, std::ios::binary | std::ios::in);
   if (!file.is_open()) {
@@ -229,10 +233,21 @@ std::unique_ptr<PlyData> readPly(const std::string& filename) {
     elements.push_back({element.name, std::make_unique<DataTable>(columns)});
   }
 
-  auto result = std::make_unique<PlyData>();
-  result->comments = std::move(header.comments);
-  result->elements = std::move(elements);
-  return result;
+  PlyData plyData;
+  plyData.comments = std::move(header.comments);
+  plyData.elements = std::move(elements);
+
+  if(!isCompressedPly(&plyData)) {
+    return decompressPly(&plyData);
+  }
+
+  auto it = std::find_if(plyData.elements.begin(), plyData.elements.end(), [](const PlyElementData& d){return d.name == "vertex";});
+  if(it == plyData.elements.end())
+  {
+    throw std::runtime_error("PLY file does not contain vertex element");
+  }
+
+  return std::move(it->dataTable);
 }
 
 }  // namespace splat

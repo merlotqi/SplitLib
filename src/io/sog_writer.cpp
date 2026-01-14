@@ -315,7 +315,7 @@ void writeSog(const std::string& outputFilename, DataTable* dataTable, bool bund
     const auto& opacity = dataTable->getColumnByName("opacity").asSpan<float>();
     std::vector<uint8_t> opacityData(opacity.size());
     for (size_t i = 0; i < numRows; i++) {
-      double v = sigmoid(static_cast<double>(opacity[i])) * 255.0;
+      double v = sigmoid(opacity[i]) * 255.0;
       opacityData[i] = static_cast<uint8_t>(std::max(0.0, std::min(255.0, std::floor(v))));
     }
     labels->addColumn({"opacity", opacityData});

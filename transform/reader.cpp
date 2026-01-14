@@ -37,15 +37,7 @@ std::vector<std::unique_ptr<DataTable>> readFile(const std::string& filename, co
   } else if (inputFormat == "sog") {
     results.emplace_back(readSog(filename, filename));
   } else if (inputFormat == "ply") {
-    auto ply = readPly(filename);
-    if (isCompressedPly(ply.get())) {
-      results.emplace_back(decompressPly(ply.release()));
-    } else {
-      if (ply->elements.size() != 1 || ply->elements[0].name != "vertex") {
-        throw std::runtime_error("Unsupported data in file " + filename);
-      }
-      results.emplace_back(ply->elements[0].dataTable.release());
-    }
+    results.emplace_back(readPly(filename));
   } else if (inputFormat == "spz") {
     results.emplace_back(readSpz(filename));
   } else if (inputFormat == "lcc") {

@@ -65,7 +65,7 @@ static std::array<std::vector<uint16_t>, 3> decodeMeans(const std::vector<uint8_
 }
 
 static float invLogTransform(float v) {
-  const float a = abs(v);
+  const float a = fabs(v);
   const float e = exp(a) - 1;
   return v < 0 ? -e : e;
 }
