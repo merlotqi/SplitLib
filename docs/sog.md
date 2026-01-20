@@ -3,9 +3,97 @@ title: The SOG Format
 sidebar_label: SOG
 ---
 
-**SOG (Spatially Ordered Gaussians)** is a compact container for 3D Gaussian Splat data. It achieves high compression via quantization (lossy by design), typically yielding files **\~15–20× smaller** than an equivalent PLY.
+**SOG (Spatially Ordered Gaussians)** is a compact, compressed container format specifically designed for 3D Gaussian Splat data in real-time neural rendering applications. It achieves high compression through quantization techniques, typically yielding files **15–20× smaller** than equivalent PLY files while maintaining visual quality suitable for web delivery and interactive applications.
 
-This document is the format specification.
+## What is the SOG Format?
+
+SOG was developed as a runtime-optimized alternative to the PLY format for 3D Gaussian Splatting. While PLY serves excellently as an uncompressed interchange and archival format, SOG addresses the performance requirements of real-time rendering, particularly for web-based applications where file size and loading speed are critical.
+
+### Key Characteristics
+
+- **Lossy Compression**: Uses quantization to reduce precision while preserving visual fidelity
+- **Web-Optimized**: Designed for fast loading and streaming over networks
+- **GPU-Friendly**: Structured for efficient GPU processing and rendering
+- **Compact Storage**: Significant reduction in file size compared to source PLY files
+
+## Why SOG Exists
+
+3D Gaussian Splatting has revolutionized real-time neural rendering by representing scenes as collections of 3D Gaussians rather than traditional meshes. However, the PLY format used during training and processing contains full-precision floating-point data that results in large file sizes (often hundreds of megabytes to gigabytes).
+
+For real-time applications, especially web-based viewers, these large files present significant challenges:
+
+- **Network Transfer**: Slow download times for users
+- **Storage Costs**: Expensive CDN and hosting fees
+- **Loading Performance**: Long initialization times before rendering can begin
+- **Memory Usage**: High memory requirements on client devices
+
+SOG solves these problems by applying carefully designed compression techniques that maintain the visual quality of the original scene while dramatically reducing file size and improving loading performance.
+
+## Benefits Over PLY
+
+| Aspect | PLY | SOG |
+|--------|-----|-----|
+| **File Size** | Large (50MB - several GB) | Small (15-20× compression ratio) |
+| **Quality** | Lossless | Lossy but visually optimized |
+| **Loading Speed** | Slow | Fast |
+| **Network Transfer** | Impractical for web | Optimized for web delivery |
+| **Memory Usage** | High | Reduced |
+| **Use Case** | Training, editing, archival | Runtime, delivery, web apps |
+
+## Compression Approach
+
+SOG achieves its impressive compression ratios through several sophisticated techniques:
+
+### Quantization
+- **Position Encoding**: 16-bit quantization of log-transformed 3D positions
+- **Orientation Encoding**: 26-bit "smallest-three" quaternion compression
+- **Scale Encoding**: Codebook-based quantization of scale values
+- **Color Encoding**: Quantized spherical harmonics coefficients
+
+### Lossless Components
+- **WebP Compression**: All data stored as WebP images for additional lossless compression
+- **Efficient Packing**: Multiple properties stored in RGBA channels
+- **Metadata Optimization**: Compact JSON metadata with shared codebooks
+
+### Visual Quality Preservation
+- **Perceptually-Based**: Compression designed to minimize visible artifacts
+- **Adaptive Quantization**: Different precision levels for different properties
+- **Color Space Awareness**: Proper handling of linear vs sRGB color spaces
+
+## Use Cases
+
+### Web Applications
+SOG is ideal for web-based 3D viewers where fast loading and small file sizes are essential for user experience.
+
+### Real-Time Rendering
+The compressed format enables efficient GPU processing and rendering of complex scenes.
+
+### Content Delivery Networks
+Small file sizes make SOG practical for global distribution through CDNs.
+
+### Mobile Applications
+Reduced memory requirements and fast loading make SOG suitable for mobile 3D applications.
+
+## File Structure Overview
+
+A SOG dataset consists of a metadata file (`meta.json`) plus a series of WebP images containing the compressed Gaussian properties. This structure allows for efficient streaming and progressive loading.
+
+### Core Components
+- **Metadata**: JSON file describing the dataset and compression parameters
+- **Position Data**: Quantized 3D positions stored across two WebP images
+- **Orientation Data**: Compressed quaternion rotations
+- **Scale Data**: Codebook-quantized size information
+- **Color Data**: Spherical harmonics coefficients for view-dependent coloring
+- **Optional Higher-Order SH**: Additional frequency bands for complex lighting
+
+### Bundled vs Multi-File
+SOG supports both multi-file layouts (for development) and single ZIP archives (for distribution), providing flexibility across different deployment scenarios.
+
+---
+
+# Format Specification
+
+This document serves as the complete technical specification for the SOG format.
 
 ## 1. File set
 
@@ -66,43 +154,44 @@ Readers **must** unzip and then resolve files using `meta.json` exactly as for t
 
 ## 2. `meta.json`
 
-```ts
-interface Meta {
-  version: 2;              // File format version (integer)
-  count: number;           // Number of gaussians (<= W*H of the images)
-  antialias: boolean;      // True iff scene was trained with anti-aliasing
+The `meta.json` file uses the following JSON schema structure:
 
-  means: {
-    // Ranges for decoding *log-transformed* positions (see §3.1).
-    mins: [number, number, number];   // min of nx,ny,nz (log-domain)
-    maxs: [number, number, number];   // max of nx,ny,nz (log-domain)
-    files: ["means_l.webp", "means_u.webp"];
-  };
+```json
+{
+  "version": 2,              // File format version (int)
+  "count": 187543,           // Number of gaussians (<= W*H of the images) (int)
 
-  scales: {
-    codebook: number[];    // 256 floats; see §3.3
-    files: ["scales.webp"];
-  };
+  "means": {
+    // Ranges for decoding log-transformed positions (see §3.1)
+    "mins": [-2.10, -1.75, -2.40],   // min of nx,ny,nz (log-domain) (float[3])
+    "maxs": [ 2.05,  2.25,  1.90],   // max of nx,ny,nz (log-domain) (float[3])
+    "files": ["means_l.webp", "means_u.webp"]
+  },
 
-  quats: {
-    files: ["quats.webp"]; // §3.2
-  };
+  "scales": {
+    "codebook": [/* array of 256 floats */],    // Quantization codebook for scale values (float[])
+    "files": ["scales.webp"]
+  },
 
-  sh0: {
-    codebook: number[];    // 256 floats; maps quantized DC to linear color (§3.4)
-    files: ["sh0.webp"];
-  };
+  "quats": {
+    "files": ["quats.webp"] // Quaternion orientation data
+  },
 
-  // Present only if higher-order SH exist:
-  shN?: {
-    count: number;         // Palette size (up to 65536)
-    bands: number;         // Number of SH bands (1..3). DC (=band 1) lives in sh0.
-    codebook: number[];    // 256 floats; shared for all AC coefficients (§3.5)
-    files: [
-      "shN_labels.webp",   // Per-gaussian palette index (0..count-1)
-      "shN_centroids.webp" // Palette of AC coefficients as pixels (§3.5)
-    ];
-  };
+  "sh0": {
+    "codebook": [/* array of 256 floats */],    // Quantization codebook for DC SH coefficients (float[])
+    "files": ["sh0.webp"]
+  },
+
+  // Present only if higher-order SH coefficients exist
+  "shN": {
+    "count": 128,         // Palette size (up to 65536) (int)
+    "bands": 3,           // Number of SH bands (1..3). DC (=band 1) lives in sh0 (int)
+    "codebook": [/* array of 256 floats */],    // Shared codebook for AC coefficients (float[])
+    "files": [
+      "shN_labels.webp",   // Per-gaussian palette indices (0..count-1)
+      "shN_centroids.webp" // Palette of AC coefficients as pixels
+    ]
+  }
 }
 ```
 
@@ -124,25 +213,27 @@ interface Meta {
 
 Each axis is quantized to **16 bits** across two images:
 
-```ts
+```cpp
 // 16-bit normalized value per axis (0..65535)
-const qx = (means_u.r << 8) | means_l.r;
-const qy = (means_u.g << 8) | means_l.g;
-const qz = (means_u.b << 8) | means_l.b;
+uint16_t qx = (means_u.r << 8) | means_l.r;
+uint16_t qy = (means_u.g << 8) | means_l.g;
+uint16_t qz = (means_u.b << 8) | means_l.b;
 
-// Dequantize into *log-domain* nx,ny,nz using per-axis ranges from meta:
-const nx = lerp(meta.means.mins[0], meta.means.maxs[0], qx / 65535);
-const ny = lerp(meta.means.mins[1], meta.means.maxs[1], qy / 65535);
-const nz = lerp(meta.means.mins[2], meta.means.maxs[2], qz / 65535);
+// Dequantize into log-domain nx,ny,nz using per-axis ranges from meta:
+float nx = lerp(meta.means.mins[0], meta.means.maxs[0], qx / 65535.0f);
+float ny = lerp(meta.means.mins[1], meta.means.maxs[1], qy / 65535.0f);
+float nz = lerp(meta.means.mins[2], meta.means.maxs[2], qz / 65535.0f);
 
 // Undo the symmetric log transform used at encode time:
-const unlog = (n: number) => Math.sign(n) * (Math.exp(Math.abs(n)) - 1);
-
-const p = {
-  x: unlog(nx),
-  y: unlog(ny),
-  z: unlog(nz),
+auto unlog = [](float n) -> float {
+  float a = std::abs(n);
+  float e = std::exp(a) - 1.0f;
+  return n < 0.0f ? -e : e;
 };
+
+float px = unlog(nx);
+float py = unlog(ny);
+float pz = unlog(nz);
 ```
 
 ### 3.2 Orientation
@@ -155,28 +246,30 @@ Quaternions are encoded with **3×8-bit components + 2-bit mode** (total **26 bi
 * **A** stores the **mode** in the range **252..255**. The mode is `A - 252` ∈ {0,1,2,3} and identifies which of the four components was the **largest by magnitude** (and therefore omitted from the stream and reconstructed).
 * Let `norm = Math.SQRT2` (i.e., √2).
 
-```ts
+```cpp
 // Dequantize the stored three components:
-const toComp = (c: number) => (c / 255 - 0.5) * 2.0 / Math.SQRT2;
+auto toComp = [](uint8_t c) -> float {
+  return (c / 255.0f - 0.5f) * 2.0f / std::sqrt(2.0f);
+};
 
-const a = toComp(quats.r);
-const b = toComp(quats.g);
-const c = toComp(quats.b);
+float a = toComp(quats.r);
+float b = toComp(quats.g);
+float c = toComp(quats.b);
 
-const mode = quats.a - 252; // 0..3 (R,G,B,A is one of the four components)
+uint8_t mode = quats.a - 252; // 0..3 (R,G,B,A is one of the four components)
 
 // Reconstruct the omitted component so that ||q|| = 1 and w.l.o.g. the omitted one is non-negative
-const t = a*a + b*b + c*c;
-const d = Math.sqrt(Math.max(0, 1 - t));
+float t = a*a + b*b + c*c;
+float d = std::sqrt(std::max(0.0f, 1.0f - t));
 
 // Place components according to mode
-let q: [number, number, number, number];
+std::array<float, 4> q;
 switch (mode) {
-    case 0: q = [d, a, b, c]; break; // omitted = x
-    case 1: q = [a, d, b, c]; break; // omitted = y
-    case 2: q = [a, b, d, c]; break; // omitted = z
-    case 3: q = [a, b, c, d]; break; // omitted = w
-    default: throw new Error("Invalid quaternion mode");
+    case 0: q = {d, a, b, c}; break; // omitted = x
+    case 1: q = {a, d, b, c}; break; // omitted = y
+    case 2: q = {a, b, d, c}; break; // omitted = z
+    case 3: q = {a, b, c, d}; break; // omitted = w
+    default: throw std::runtime_error("Invalid quaternion mode");
 }
 ```
 
@@ -190,10 +283,10 @@ switch (mode) {
 
 Per-axis sizes are **codebook indices**:
 
-```ts
-const sx = meta.scales.codebook[scales.r]; // 0..255
-const sy = meta.scales.codebook[scales.g];
-const sz = meta.scales.codebook[scales.b];
+```cpp
+float sx = meta.scales.codebook[scales.r]; // 0..255
+float sy = meta.scales.codebook[scales.g];
+float sz = meta.scales.codebook[scales.b];
 ```
 
 Interpretation (e.g., principal axis standard deviations vs. full extents) follows the source training setup; values are in **scene units**.
@@ -209,14 +302,14 @@ Interpretation (e.g., principal axis standard deviations vs. full extents) follo
 
 To convert the DC coefficient to **linear RGB** contribution:
 
-```ts
+```cpp
 // SH_C0 = Y_0^0 = 1 / (2 * sqrt(pi))
-const SH_C0 = 0.28209479177387814;
+constexpr float SH_C0 = 0.28209479177387814f;
 
-const r = 0.5 + meta.sh0.codebook[sh0.r] * SH_C0;
-const g = 0.5 + meta.sh0.codebook[sh0.g] * SH_C0;
-const b = 0.5 + meta.sh0.codebook[sh0.b] * SH_C0;
-const a = sh0.a / 255;
+float r = 0.5f + meta.sh0.codebook[sh0.r] * SH_C0;
+float g = 0.5f + meta.sh0.codebook[sh0.g] * SH_C0;
+float b = 0.5f + meta.sh0.codebook[sh0.b] * SH_C0;
+float a = sh0.a / 255.0f;
 ```
 
 > **Color space.** Values are **linear**. If you output to sRGB, apply the usual transfer after shading/compositing.
@@ -234,8 +327,8 @@ If present, higher-order (AC) SH coefficients are stored via a palette:
 
 * `shN_labels.webp` stores a **16-bit index** per gaussian with range (0..count-1).
 
-```ts
-const index = shN_labels.r + (shN_labels.g << 8);
+```cpp
+uint16_t index = shN_labels.r + (shN_labels.g << 8);
 ```
 
 #### Centroids (palette)
@@ -253,10 +346,10 @@ The texture width is dependent on the number of bands:
 
 Calculating the pixel location for spherical harmonic entry n and coefficient c:
 
-```ts
-const coeffs = [3, 8, 15];
-const u = (n % 64) * coeffs[bands] + c;
-const v = Math.floor(n / 64);
+```cpp
+const std::array<int, 4> coeffs = {0, 3, 8, 15};
+int u = (n % 64) * coeffs[bands] + c;
+int v = n / 64;
 ```
 
 ---
@@ -267,7 +360,6 @@ const v = Math.floor(n / 64);
 {
   "version": 2,
   "count": 187543,
-  "antialias": true,
   "means": {
     "mins": [-2.10, -1.75, -2.40],
     "maxs": [ 2.05,  2.25,  1.90],

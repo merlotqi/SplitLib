@@ -54,26 +54,26 @@ Standard PLY files typically store simple mesh geometry with basic properties li
 
 ### Extended Properties
 
-3DGS PLY files contain specialized properties for each Gaussian splat:
+3DGS PLY files contain specialized properties for each Gaussian splat, all stored as 32-bit `float` values:
 
-- **Position** (`x`, `y`, `z`): 3D location of the splat center
-- **Scale** (`scale_0`, `scale_1`, `scale_2`): Size of the Gaussian along each axis
-- **Rotation** (`rot_0`, `rot_1`, `rot_2`, `rot_3`): Quaternion representing splat orientation
-- **Opacity**: Transparency/alpha value
+- **Position** (`x`, `y`, `z`): 3D location of the splat center (float[3])
+- **Scale** (`scale_0`, `scale_1`, `scale_2`): Size of the Gaussian along each axis, stored in linear space (float[3])
+- **Rotation** (`rot_0`, `rot_1`, `rot_2`, `rot_3`): Unit quaternion representing splat orientation (float[4])
+- **Opacity**: Transparency/alpha value in [0,1] range (float)
 - **Spherical Harmonics Coefficients**: View-dependent color encoding using two sets of properties:
-  - **Direct Color Component** (`f_dc_0`, `f_dc_1`, `f_dc_2`): The base color values (RGB) representing the 0th-order spherical harmonic coefficients. These define the primary color of the splat.
+  - **Direct Color Component** (`f_dc_0`, `f_dc_1`, `f_dc_2`): The base color values (RGB) representing the 0th-order spherical harmonic coefficients in linear color space (float[3])
   - **Higher-Order Coefficients** (`f_rest_0` through `f_rest_44`): Additional spherical harmonic coefficients that encode how the color changes based on viewing direction. These 45 coefficients are distributed across higher-order bands:
     - **1st order**: 3 coefficients × 3 color channels = 9 coefficients
-    - **2nd order**: 5 coefficients × 3 color channels = 15 coefficients  
+    - **2nd order**: 5 coefficients × 3 color channels = 15 coefficients
     - **3rd order**: 7 coefficients × 3 color channels = 21 coefficients
 
 ### No Traditional Geometry
 
-Unlike regular PLY files that contain vertices and faces defining mesh topology, 3DGS PLY files contain only point data with no connectivity information. Each "vertex" represents an independent Gaussian splat.
+Unlike regular PLY files that contain vertices and faces defining mesh topology, 3DGS PLY files contain only point cloud data with no connectivity information. Each "vertex" element represents an independent 3D Gaussian with all its rendering parameters.
 
 ### Massive Point Counts
 
-3DGS PLY files typically contain hundreds of thousands to millions of points, far exceeding typical mesh vertex counts.
+3DGS PLY files typically contain hundreds of thousands to millions of points, far exceeding typical mesh vertex counts. Each point represents a complete Gaussian splat with position, orientation, size, opacity, and view-dependent color information.
 
 ## PLY as a Source Format
 
